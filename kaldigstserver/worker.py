@@ -156,6 +156,7 @@ class ServerWebsocket(WebSocketClient):
         logger.debug("%s: Websocket closed() finished" % self.request_id)
 
     def _on_result(self, result, final):
+        logger.info("ON RESULT")
         self.last_decoder_message = time.time()
         logger.info("%s: Postprocessing (final=%s) result.."  % (self.request_id, final))
         processed_transcript = self.post_process(result)

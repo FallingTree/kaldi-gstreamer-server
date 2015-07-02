@@ -17,6 +17,15 @@ WAVE_OUTPUT_FILENAME = "wav"
 DATA_DIR = "tmp/wav"
 global interface
 
+def timing(f):
+    def wrap(*args):
+        time1 = time.time()
+        ret = f(*args)
+        time2 = time.time()
+        print '%s function took %0.3f ms' % (f.func_name, (time2-time1)*1000.0)
+        return ret
+    return wrap
+
 
 def rate_limited(maxPerSecond):
     minInterval = 1.0 / float(maxPerSecond)
@@ -46,12 +55,14 @@ class MyClient(WebSocketClient):
         self.send_adaptation_state_filename = send_adaptation_state_filename
         self.data = data
 
-    #@rate_limited(4800)
+    #@rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
 
+
     def opened(self):
         #print "Socket opened!"
+        @timing
         def send_data_to_ws():
             if self.send_adaptation_state_filename is not None:
                 print >> sys.stderr, "Sending adaptation state from %s" % self.send_adaptation_state_filename
@@ -106,6 +117,7 @@ class MyClient(WebSocketClient):
                 print >> sys.stderr, "Error message:",  response['message']
 
 
+    @timing
     def get_full_hyp(self, timeout=60):
         return self.final_hyp_queue.get(timeout)
 
@@ -168,8 +180,10 @@ class Dictate(threading.Thread):
                     print result
                     print "**********************************************************"
                     print
-                    #interface.ws.close()
-                    interface.ws = None
+                    
+
+                    # #interface.ws.close()
+                    # interface.ws = None
                     
                     # Pour pouvoir l'écrire dans le wav on a pas besoin de l'en-tête
                     frames[0] = temp
@@ -189,6 +203,7 @@ class Dictate(threading.Thread):
                     k+=1
                     frames = []
                     time.sleep(1.25)
+
                 
             while interface.isactif == False:
                 time.sleep(0.5)

@@ -1,4 +1,6 @@
 # -*- encoding: UTF-8 -*-
+# Version avec thread pour chaque envoi de segment
+# Ne marche pas car le serveur rejette les connexions si aucun décodeur n'est disponible
 from Tkinter import *
 from recorder import *
 import time
@@ -16,6 +18,45 @@ descripteur_wav = ['R', 'I', 'F', 'F', '$', 'X', '\x02', '\x00', 'W', 'A', 'V', 
 WAVE_OUTPUT_FILENAME = "wav"
 DATA_DIR = "tmp/wav"
 global interface
+
+
+class Sender(threading.Thread): 
+    def __init__(self,frames,args,k): 
+        threading.Thread.__init__(self) 
+        self.frames = list(frames)
+        self.args = args
+        self.ws = None
+        self.numero_wav = k
+
+
+    def run(self): 
+        global interface
+        self.state = 1    
+
+        self.ws = MyClient(self.frames, self.args.uri + '?%s' % (urllib.urlencode([("content-type", self.args.content_type)])), byterate=self.args.rate,
+                                save_adaptation_state_filename=self.args.save_adaptation_state, send_adaptation_state_filename=self.args.send_adaptation_state)
+        self.ws.connect()
+
+        print "** Audio sample n°"+str(self.numero_wav)+" sent"
+
+        result = self.ws.get_full_hyp()
+        filename = DATA_DIR +'/'+WAVE_OUTPUT_FILENAME+'_'+str(self.numero_wav)
+
+        print
+        print "*** Final hypothesis for sample n°"+str(self.numero_wav)+" ****************"
+        result = result.encode('utf-8')
+        interface.TextArea.delete(interface.start_currTrans,"end")
+        interface.TextArea.insert('end',result)
+        interface.start_currTrans = interface.TextArea.index(INSERT)
+
+        # On stocke le résultat dans un fichier pour pouvoir faire des calculs de WER
+        fichier_ref = open(filename+'.trans', "w")
+        fichier_ref.write(result)
+        fichier_ref.close()
+        print result
+        print "**********************************************************"
+        print
+
 
 
 def rate_limited(maxPerSecond):
@@ -36,7 +77,7 @@ def rate_limited(maxPerSecond):
 
 class MyClient(WebSocketClient):
 
-    def __init__(self, recorder_buffer, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
+    def __init__(self, data, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
@@ -44,9 +85,7 @@ class MyClient(WebSocketClient):
         self.final_hyp_queue = Queue.Queue()
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
-        self.buffer = recorder_buffer
-        self.buffer0 = None
-        self.isSending = False
+        self.data = data
 
     #@rate_limited(4)
     def send_data(self, data):
@@ -55,7 +94,6 @@ class MyClient(WebSocketClient):
     def opened(self):
         #print "Socket opened!"
         def send_data_to_ws():
-
             if self.send_adaptation_state_filename is not None:
                 print >> sys.stderr, "Sending adaptation state from %s" % self.send_adaptation_state_filename
                 try:
@@ -65,26 +103,14 @@ class MyClient(WebSocketClient):
                     e = sys.exc_info()[0]
                     print >> sys.stderr, "Failed to send adaptation state: ",  e
 
-
-            i = 0
-            while self.isSending and i<100:
-                if len(self.buffer) > 1 and self.buffer0 is None:
-                    # Adding the header of a wav file
-                    self.buffer0 = self.buffer[0]
-                    self.buffer[0] = (b''.join(descripteur_wav + list(self.buffer[0])))
-                    print self.buffer[0]
-
-                if len(self.buffer) > i+1:
-                    self.send_data(b''.join(self.buffer[i]))
-                    time.sleep(0.1)
-                    i+=1
+            for i in range(0,len(self.data)):
+                self.send_data(b''.join(self.data[i]))
 
 
             print >> sys.stderr, "Audio sent, now sending EOS"
-            self.send("EOS")
+            #self.send("EOS")
             
 
-        self.isSending = True
         t = threading.Thread(target=send_data_to_ws)
         t.start()
         t.join()
@@ -130,62 +156,56 @@ class MyClient(WebSocketClient):
 
 
 class Dictate(threading.Thread): 
-    def __init__(self): 
+    def __init__(self,args): 
         threading.Thread.__init__(self) 
         self.isrunning = True
+        self.args = args
 
     def run(self): 
         global interface
         self.state = 1
 
         frames = []
-        longueur_segment = int(interface.recorder.rate / interface.recorder.chunk * interface.record_seconds)
+        longueur_segment = int(interface.recorder.rate / interface.recorder.chunk * self.args.record_seconds)
         k=0
-        interface.ws = MyClient(interface.recorder.buffer, interface.uri + '?%s' % (urllib.urlencode([("content-type", interface.content_type)])), byterate=interface.rate,
-                                save_adaptation_state_filename=interface.save_adaptation_state, send_adaptation_state_filename=interface.send_adaptation_state)
-        interface.ws.connect()
-        interface.ws.run_forever()
 
         while self.isrunning:
             while interface.isactif:
 
+                # On verifie que que le buffer a eu assez de donnees pour pouvoir copier
+                if len(interface.recorder.buffer) > interface.start_currSegment+longueur_segment+1:
 
-                    result = interface.ws.get_full_hyp()
-                    filename = DATA_DIR +'/'+WAVE_OUTPUT_FILENAME+"_"+str(k)+".wav"
 
+                    # On copie la partie du buffer qui nous interesse
+                    for i in range(0, longueur_segment):
+                        frames.append(interface.recorder.buffer[interface.start_currSegment+i])
 
-                    print
-                    print "*** Final hypothesis ****************"
-                    result = result.encode('utf-8')
-                    interface.TextArea.delete(interface.start_currTrans,"end")
-                    interface.TextArea.insert('end',result)
-                    interface.start_currTrans = interface.TextArea.index(INSERT)
+                    # On rajoute l'en-tête du fichier wav manuellement
+                    temp = frames[0]
+                    frames[0] = (b''.join(descripteur_wav + list(frames[0])))
 
-                    # On stocke le résultat dans un fichier pour povoir faire des calculs de WER
-                    fichier_ref = open(filename+'.trans', "w")
-                    fichier_ref.write(result)
-                    fichier_ref.close()
-                    print result
-                    print "**********************************************************"
-                    print
+                    # On envoi les données au serveur
+                    t = Sender(frames,self.args,k)
+                    t.start()
 
                     # Pour pouvoir l'écrire dans le wav on a pas besoin de l'en-tête
-                    interface.recorder.buffer[0] = interface.ws.buffer0
+                    frames[0] = temp
 
                     # Ecriture dans un wav
-                    
+                    filename = DATA_DIR +'/'+WAVE_OUTPUT_FILENAME+'_'+str(k)
                     wf = wave.open(filename+'.wav', 'wb')
                     wf.setnchannels(interface.recorder.channels)
                     wf.setsampwidth(interface.recorder.p.get_sample_size(interface.recorder.format))
                     wf.setframerate(interface.recorder.rate)
-                    wf.writeframes(b''.join(interface.recorder.buffer))
+                    wf.writeframes(b''.join(frames))
                     wf.close()
 
+                    print "* Wav n°"+str(k)+" enregistre"
+
+                    interface.start_currSegment += longueur_segment
                     k+=1
-
-                    print "* Wav enregistre"
-
-
+                    frames = []
+                
             while interface.isactif == False:
                 time.sleep(0.5)
 
@@ -194,8 +214,6 @@ class Dictate(threading.Thread):
 
     def stop(self):
         self.isrunning = False
-
-
 
 
 
@@ -242,20 +260,17 @@ class Interface(Frame):
         self.message = Label(self.frame2, text="Transcription : OFF")
         self.message.pack(side="left")
 
-        self.currentline = 1.0
-        self.record_seconds = args.record_seconds
-        self.save_adaptation_state = args.save_adaptation_state
-        self.send_adaptation_state = args.send_adaptation_state
-        self.rate = args.rate
-        self.uri = args.uri
-        self.content_type = args.content_type  
+        self.transcript = ""
+        self.start_currTrans = "1.0"
         self.recorder = Recorder(args.rate,'recorder') 
         self.start_currSegment = 0
         self.ws = None
         self.t = None
         self.isactif = False
+        self.args = args
 
-        self.start_currTrans = "1.0"
+        
+
 
     
     def cliquer_record(self):
@@ -270,7 +285,7 @@ class Interface(Frame):
         if self.isactif == False :
             self.isactif = True
             if self.t is None:
-                self.t = Dictate()
+                self.t = Dictate(self.args)
                 self.t.start()
         else:
             print "Déjà en cours"

@@ -26,7 +26,12 @@ class Recorder(threading.Thread):
             frames_per_buffer=self.chunk)
         self.state = 0
 
-
+        # self.wf = wave.open('temp.wav', 'wb')
+        # self.wf.setnchannels(self.channels)
+        # self.wf.setsampwidth(self.p.get_sample_size(self.format))
+        # self.wf.setframerate(self.rate)
+        
+        
 
     def run(self): 
         self.state = 1
@@ -36,8 +41,11 @@ class Recorder(threading.Thread):
             if self.recording:
                 data = self.stream.read(self.chunk)
                 self.buffer.append(data)
+                # self.wf.writeframes(b''.join(data))
        
             #print "longueur du buffer", len(self.buffer)
+
+
 
 
 
@@ -47,6 +55,7 @@ class Recorder(threading.Thread):
         self.stream.stop_stream()
         self.stream.close()
         self.p.terminate()
+        # self.wf.close()
 
     def stop_recoding(self):
         self.recording = False 

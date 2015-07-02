@@ -1,4 +1,4 @@
-__author__ = 'tanel'
+# -*- encoding: UTF-8 -*-
 
 import argparse
 from ws4py.client.threadedclient import WebSocketClient
@@ -11,6 +11,7 @@ import json
 import time
 import os
 from gi.repository import GObject
+from recorder import *
 
 def rate_limited(maxPerSecond):
     minInterval = 1.0 / float(maxPerSecond)
@@ -30,24 +31,27 @@ def rate_limited(maxPerSecond):
 
 class MyClient(WebSocketClient):
 
-    def __init__(self, filename, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
+    def __init__(self, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
-        self.fn = filename
+        self.fn = None
         self.byterate = byterate
+        self.isSending = True
         self.final_hyp_queue = Queue.Queue()
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
+        self.currSegment = -1
+        self.encours = False
+        self.segment_sending = 0 
 
-    @rate_limited(10)
+    @rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
 
     def opened(self):
         #print "Socket opened!"
         def send_data_to_ws():
-            f = open(self.fn, "rb")
             if self.send_adaptation_state_filename is not None:
                 print >> sys.stderr, "Sending adaptation state from %s" % self.send_adaptation_state_filename
                 try:
@@ -56,10 +60,22 @@ class MyClient(WebSocketClient):
                 except:
                     e = sys.exc_info()[0]
                     print >> sys.stderr, "Failed to send adaptation state: ",  e
-            for block in iter(lambda: f.read(self.byterate/4), ""):
-                self.send_data(block)
-            #print >> sys.stderr, "Audio sent, now sending EOS"
-            #self.send("EOS")
+
+            
+            while self.isSending:
+                if self.currSegment == self.segment_sending and self.currSegment != -1 :
+                    self.encours = True
+                    print "Sengment envoyé : ", self.currSegment
+                    print "Filename : ", self.fn
+                    f = open(self.fn, "rb")
+                    for block in iter(lambda: f.read(self.byterate/4), ""):
+                        self.send_data(block) 
+                    f.close()
+                    self.segment_sending+=1
+                    self.encours = False
+            print >> sys.stderr, "Audio sent, now sending EOS"
+            self.send("EOS")
+
 
         t = threading.Thread(target=send_data_to_ws)
         t.start()
@@ -96,9 +112,23 @@ class MyClient(WebSocketClient):
         return self.final_hyp_queue.get(timeout)
 
     def closed(self, code, reason=None):
-        #print "Websocket closed() called"
+        print "Websocket closed() called"
         #print >> sys.stderr
         self.final_hyp_queue.put(" ".join(self.final_hyps))
+
+    def start_Sending(self):
+        self.isSending = True
+
+    def stop_Sending(self):
+        self.isSending = False
+
+    def send_frames(self,filename):
+        if self.currSegment > -1 :
+            while self.encours or self.segment_sending - (self.currSegment +1) > 1:
+                time.sleep(0.1)
+        self.fn = filename
+        self.currSegment += 1
+
 
 
 def main():
@@ -109,30 +139,69 @@ def main():
     parser.add_argument('--save-adaptation-state', help="Save adaptation state to file")
     parser.add_argument('--send-adaptation-state', help="Send adaptation state from file")
     parser.add_argument('--content-type', default='', help="Use the specified content type (empty by default, for raw files the default is  audio/x-raw, layout=(string)interleaved, rate=(int)<rate>, format=(string)S16LE, channels=(int)1")
-    parser.add_argument('audiofile', help="Audio file to be sent to the server")
     args = parser.parse_args()
 
     content_type = args.content_type
-    if content_type == '' and args.audiofile.endswith(".raw"):
-        content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
+   
+
+    try :   
+        # Lancer la classe qui gère l'enregistrement
+        recorder = Recorder(args.rate)
+        recorder.start()
+
+        print "* Recording "
+        recorder.start_recording()
+        record_seconds = 5
+        longueur_segment = int(recorder.rate / recorder.chunk * record_seconds)
+        start_currSegment = 0
+        frames = []
+        k=0
+
+        print "Connecting to the Socket"
+        # Lancer la classe qui gère l'envoi de données au serveur
+        ws = MyClient(args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
+                          save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
+
+        
+        ws.connect()
+        #ws.run_forever()
 
 
-    while True:
+        while True:
+            # On verifie que que le buffer a eu assez de donnees pour pouvoir copier
+            if len(recorder.buffer) > start_currSegment+longueur_segment+1:
+                # On copie la partie du buffer qui nous interesse
+                for i in range(0, longueur_segment):
+                    frames.append(recorder.buffer[start_currSegment+i])
+                filename = "temp/wav_"+str(k)+".wav"
+                wf = wave.open(filename, 'wb')
+                wf.setnchannels(recorder.channels)
+                wf.setsampwidth(recorder.p.get_sample_size(recorder.format))
+                wf.setframerate(recorder.rate)
+                wf.writeframes(b''.join(frames))
+                wf.close()
+                ws.send_frames(filename)
+                result = ws.get_full_hyp()
+                result = result.encode('utf-8')
+                print "Final Hypothesis : ", result
+                start_currSegment+=longueur_segment
+                frames = []
+                k+=1
 
-        ws = MyClient(args.audiofile, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
-                      save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
-        try:
-            print "Opening websocket connection to master server"
-            ws.connect()
-            ws.run_forever()
-            result = ws.get_full_hyp()
-            print result.encode('utf-8')
 
-        except Exception:
-            print "Couldn't connect to server, waiting for 1 seconds"
-            time.sleep(1)
-        # fixes a race condition
-        time.sleep(1)
+        ws.stop_Sending()
+
+
+        result = ws.get_full_hyp()
+        print result.encode('utf-8')
+
+    except KeyboardInterrupt:
+        print "Interrupted by user, Shutting Down"
+        recorder.stop()
+        ws.stop_Sending()
+        ws.close()
+        sys.exit(0)
+
 
 
 if __name__ == "__main__":
