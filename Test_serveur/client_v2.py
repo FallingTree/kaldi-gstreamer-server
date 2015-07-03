@@ -31,7 +31,7 @@ def rate_limited(maxPerSecond):
 
 class MyClient(WebSocketClient):
 
-    def __init__(self, data, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
+    def __init__(self, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
@@ -41,12 +41,11 @@ class MyClient(WebSocketClient):
         self.final_hyp_queue = Queue.Queue()
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
-        self.data = data
+        self.currSegment = -1
+        self.encours = False
+        self.segment_sending = 0 
 
-
-
-
-    @rate_limited(10)
+    @rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
 
@@ -62,15 +61,23 @@ class MyClient(WebSocketClient):
                     e = sys.exc_info()[0]
                     print >> sys.stderr, "Failed to send adaptation state: ",  e
 
-            i = 0
+            
             while self.isSending:
-                if len(self.data) > i :
-                    print "i = ", i
-                    self.send_data(b''.join(self.data[i]))
-                    i+=1
-
-
-            print >> sys.stderr, "Audio sent, now sending EOS"
+                if self.currSegment == self.segment_sending and self.currSegment != -1 :
+            #         self.encours = True
+            #         print "Segment envoyé : ", self.currSegment
+            #         # print "Longeur chunk : ", len(b''.join(self.frames[1]))
+            #         # print "Frames[0]"
+            #         # print self.frames[0]
+            #         # print
+            #         for k in range(0,len(self.frames)):
+            #             #print "k = ", k
+            #             self.send_data(b''.join(self.frames[k]))
+            #         # self.send_data(b''.join(self.frames))
+            #         self.segment_sending+=1
+            #         self.encours = False
+            # print >> sys.stderr, "Audio sent, now sending EOS"
+                    i=0
             self.send("EOS")
 
 
@@ -119,6 +126,12 @@ class MyClient(WebSocketClient):
     def stop_Sending(self):
         self.isSending = False
 
+    def send_frames(self,frames):
+        # if self.currSegment > -1 :
+        #     while self.encours or self.segment_sending - (self.currSegment +1) > 1:
+        #         time.sleep(0.1)
+        self.send_data(b''.join(frames))
+        # self.currSegment += 1
 
 
 
@@ -132,7 +145,7 @@ def main():
     parser.add_argument('--content-type', default='', help="Use the specified content type (empty by default, for raw files the default is  audio/x-raw, layout=(string)interleaved, rate=(int)<rate>, format=(string)S16LE, channels=(int)1")
     args = parser.parse_args()
 
-    content_type = args.content_type
+    content_type = content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
    
 
     try :   
@@ -148,17 +161,33 @@ def main():
         frames = []
         k=0
 
-        while len(recorder.buffer) < 25:
-            time.sleep(0.001)
-
         print "Connecting to the Socket"
         # Lancer la classe qui gère l'envoi de données au serveur
-        ws = MyClient(recorder.buffer,args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
+        ws = MyClient(args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
                           save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
 
         
         ws.connect()
         #ws.run_forever()
+
+        
+        while True:
+            # On verifie que que le buffer a eu assez de donnees pour pouvoir copier
+            # if len(recorder.buffer) > start_currSegment+longueur_segment+1:
+            #     # On copie la partie du buffer qui nous interesse
+            #     for i in range(0, longueur_segment):
+            #         frames.append(recorder.buffer[start_currSegment+i])
+            if len(recorder.buffer) > k:
+                pass
+                ws.send_data(b''.join(recorder.buffer[k]))
+                k+=1
+
+                # start_currSegment+=longueur_segment
+                # frames = []
+
+
+        ws.stop_Sending()
+
 
         result = ws.get_full_hyp()
         print result.encode('utf-8')
@@ -168,7 +197,7 @@ def main():
         recorder.stop()
         ws.stop_Sending()
         ws.close()
-        sys.exit(0)
+        exit(0)
 
 
 

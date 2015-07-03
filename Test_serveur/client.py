@@ -65,13 +65,15 @@ class MyClient(WebSocketClient):
             while self.isSending:
                 if self.currSegment == self.segment_sending and self.currSegment != -1 :
                     self.encours = True
-                    print "Sengment envoyé : ", self.currSegment
+                    print "Segment envoyé : ", self.currSegment
                     # print "Longeur chunk : ", len(b''.join(self.frames[1]))
-                    # for k in range(0,len(self.frames)):
-                    #     #print "k = ", k
-                    #     #print self.frames[0]
-                    #     self.send_data(b''.join(self.frames[k]))
-                    self.send_data(b''.join(self.frames))
+                    # print "Frames[0]"
+                    # print self.frames[0]
+                    # print
+                    for k in range(0,len(self.frames)):
+                        #print "k = ", k
+                        self.send_data(b''.join(self.frames[k]))
+                    # self.send_data(b''.join(self.frames))
                     self.segment_sending+=1
                     self.encours = False
             print >> sys.stderr, "Audio sent, now sending EOS"
@@ -142,7 +144,7 @@ def main():
     parser.add_argument('--content-type', default='', help="Use the specified content type (empty by default, for raw files the default is  audio/x-raw, layout=(string)interleaved, rate=(int)<rate>, format=(string)S16LE, channels=(int)1")
     args = parser.parse_args()
 
-    content_type = args.content_type
+    content_type = content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
    
 
     try :   
@@ -191,7 +193,7 @@ def main():
         recorder.stop()
         ws.stop_Sending()
         ws.close()
-        sys.exit(0)
+        exit(0)
 
 
 
