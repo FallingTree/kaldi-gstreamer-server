@@ -47,7 +47,7 @@ class MyClient(WebSocketClient):
         self.nextSegment = 0
         self.fichier_ref = None
         self.start_currTrans = "1.0"
-
+        self.trans = []
     @rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
@@ -98,16 +98,30 @@ class MyClient(WebSocketClient):
                     self.start_currTrans = self.TextArea.index(INSERT)
                     if self.fichier_ref is not None:
                         self.fichier_ref.write("Hypothese finale : "+print_trans+"\n")
+                    self.trans = []
 
                 else:
                     print_trans = trans.replace("\n", "\\n")
                     if len(print_trans) > 80:
                         print_trans = "... %s" % print_trans[-76:]
                     print >> sys.stderr, '\r%s' % print_trans,
-                    self.TextArea.insert('end',print_trans)
+                    
                     if self.fichier_ref is not None:
-                        self.fichier_ref.write("Hypothese intermediaire : "+print_trans)
-                        self.fichier_ref.write("\n")
+                        self.fichier_ref.write("Hypothese intermediaire : "+print_trans+"\n")
+                    
+                    # On supprime la partie de la transcription déja affiché pour ne pas l'écrire de nouveau
+                    transcription = str(print_trans.encode('utf-8'))
+                    chaine = transcription.replace('.','')
+                    chaine = chaine.split()
+
+                    for mot in self.trans:
+                        if mot in chaine:
+                            chaine.remove(mot)
+
+                    self.trans += chaine
+                    result = " ".join(chaine)
+                    self.TextArea.insert('end',result+" ")
+                        
             if 'adaptation_state' in response:
                 if self.save_adaptation_state_filename:
                     print >> sys.stderr, "Saving adaptation state to %s" % self.save_adaptation_state_filename

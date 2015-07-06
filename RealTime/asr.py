@@ -8,6 +8,7 @@ import time
 import sys
 import argparse
 import os
+import shutil
 
 
 class Interface(Frame):
@@ -17,18 +18,22 @@ class Interface(Frame):
     
     def __init__(self, fenetre, args, **kwargs):
 
-        Frame.__init__(self, fenetre, width=768, height=576, **kwargs)
+        fenetre.geometry(args.geometry)
+        fenetre.title("ASR")
+        fenetre.wm_attributes('-topmost', 1)
+
+        Frame.__init__(self, fenetre, **kwargs)
         self.pack()
 
         # Création des frames
-        self.frame1 = Frame(self, width=100, height=200, padx=10, pady=10)
+        self.frame1 = Frame(self, padx=10, pady=10)
         self.frame1.pack(side=RIGHT,fill=Y)
 
-        self.frame2 = Frame(self,  width=400, height=10)
+        self.frame2 = Frame(self)
         self.frame2.pack(side=TOP, fill=X)
 
-        self.frame3 = Frame(self, width=400, height=190, padx=10, pady=10)
-        self.frame3.pack(side=LEFT,fill=Y)
+        self.frame3 = Frame(self, padx=10, pady=10)
+        self.frame3.pack(side=LEFT,fill=BOTH,expand=YES)
         
         # Création de nos widgets
         self.bouton_quitter = Button(self.frame1, text="Quitter", command=self.cliquer_quit)
@@ -67,9 +72,10 @@ class Interface(Frame):
         self.sender = Sender(self.ws,self.recorder,condition) 
 
 
+
     
     def cliquer_record(self):
-        
+
         if self.isactif == False :
             if self.premierefois:
                 self.ws.connect()
@@ -127,12 +133,36 @@ def main():
         parser.add_argument('-r', '--rate', default=32000, dest="rate", type=int, help="Rate in bytes/sec at which audio should be sent to the server. NB! For raw 16-bit audio it must be 2*samplerate!")
         parser.add_argument('--save-adaptation-state', help="Save adaptation state to file")
         parser.add_argument('--send-adaptation-state', help="Send adaptation state from file")
+        parser.add_argument('--geometry', default="700x200", help="Size of the window")
         args = parser.parse_args()
+
+
+
+        if os.path.exists('data'):
+
+            folder = 'data'
+            for the_file in os.listdir(folder):
+                file_path = os.path.join(folder, the_file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception, e:
+                    print e
+
+
+        else :      
+            os.makedirs('data')
+
         fenetre = Tk()
-        fenetre.geometry("800x300")
-        fenetre.title("ASR")
         interface = Interface(fenetre,args)
+
+        def on_closing():
+            interface.cliquer_quit()
+
+        fenetre.protocol("WM_DELETE_WINDOW", on_closing)
+
         interface.mainloop()
+
 
     except KeyboardInterrupt:
         interface.cliquer_quit()
