@@ -10,7 +10,6 @@ import Queue
 import json
 import time
 import os
-from gi.repository import GObject
 
 def rate_limited(maxPerSecond):
     minInterval = 1.0 / float(maxPerSecond)
@@ -40,7 +39,7 @@ class MyClient(WebSocketClient):
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
 
-    @rate_limited(10)
+    @rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
 
@@ -58,8 +57,8 @@ class MyClient(WebSocketClient):
                     print >> sys.stderr, "Failed to send adaptation state: ",  e
             for block in iter(lambda: f.read(self.byterate/4), ""):
                 self.send_data(block)
-            #print >> sys.stderr, "Audio sent, now sending EOS"
-            #self.send("EOS")
+            print >> sys.stderr, "Audio sent, now sending EOS"
+            self.send("EOS")
 
         t = threading.Thread(target=send_data_to_ws)
         t.start()
@@ -117,23 +116,12 @@ def main():
         content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
 
 
-    while True:
 
-        ws = MyClient(args.audiofile, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
-                      save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
-        try:
-            print "Opening websocket connection to master server"
-            ws.connect()
-            ws.run_forever()
-            result = ws.get_full_hyp()
-            print result.encode('utf-8')
-
-        except Exception:
-            print "Couldn't connect to server, waiting for 1 seconds"
-            time.sleep(1)
-        # fixes a race condition
-        time.sleep(1)
-
+    ws = MyClient(args.audiofile, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
+                  save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
+    ws.connect()
+    result = ws.get_full_hyp()
+    print result.encode('utf-8')
 
 if __name__ == "__main__":
     main()
