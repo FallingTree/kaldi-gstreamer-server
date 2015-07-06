@@ -8,6 +8,7 @@ import urllib
 import Queue
 import json
 from gi.repository import GObject
+from Tkinter import *
 
 
 def rate_limited(maxPerSecond):
@@ -42,9 +43,10 @@ class MyClient(WebSocketClient):
         self.encours = False
         self.segment_sending = 0 
         self.TextArea = TextArea
-        self.currSegment = 0
+        self.currSegment = -1
         self.nextSegment = 0
         self.fichier_ref = None
+        self.start_currTrans = "1.0"
 
     @rate_limited(4)
     def send_data(self, data):
@@ -62,14 +64,14 @@ class MyClient(WebSocketClient):
                     e = sys.exc_info()[0]
                     print >> sys.stderr, "Failed to send adaptation state: ",  e
 
-            self.fichier_ref = open("data/trans_"+str(0)+'.txt', "a")
             
             while self.isSending:
                 if self.currSegment != self.nextSegment:
                     if self.fichier_ref is not None:
                         self.fichier_ref.close()
                         print "* Transcript "+str(self.currSegment)+" saved !"
-                    self.fichier_ref = open("trans_"+str(self.nextSegment)+'.txt', "a")
+                    self.fichier_ref = open("data/trans_"+str(self.nextSegment)+'.txt', "a")
+                    self.currSegment = self.nextSegment
                             
             self.send("EOS")
 
@@ -90,14 +92,21 @@ class MyClient(WebSocketClient):
                     self.final_hyps.append(trans)
                     print_trans = trans.replace("\n", "\\n")
                     print >> sys.stderr, '\r%s' % print_trans
+                    self.TextArea.delete(self.start_currTrans,"end")
                     self.TextArea.insert('end',print_trans)
-                    self.fichier_ref.write(print_trans)
+                    self.start_currTrans = self.TextArea.index(INSERT)
+                    if self.fichier_ref is not None:
+                        self.fichier_ref.write("Hypothese finale : "+print_trans+"\n")
+
                 else:
                     print_trans = trans.replace("\n", "\\n")
                     if len(print_trans) > 80:
                         print_trans = "... %s" % print_trans[-76:]
                     print >> sys.stderr, '\r%s' % print_trans,
-                    #self.TextArea.insert('end',print_trans)
+                    self.TextArea.insert('end',print_trans)
+                    if self.fichier_ref is not None:
+                        self.fichier_ref.write("Hypothese intermediaire : "+print_trans)
+                        self.fichier_ref.write("\n")
             if 'adaptation_state' in response:
                 if self.save_adaptation_state_filename:
                     print >> sys.stderr, "Saving adaptation state to %s" % self.save_adaptation_state_filename

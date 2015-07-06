@@ -19,8 +19,6 @@ class Interface(Frame):
         Frame.__init__(self, fenetre, width=768, height=576, **kwargs)
         self.pack()
 
-        self.title="ASR"
-
         # Création des frames
         self.frame1 = Frame(self, width=100, height=200, padx=10, pady=10)
         self.frame1.pack(side=RIGHT,fill=Y)
@@ -130,7 +128,8 @@ def main():
         parser.add_argument('--send-adaptation-state', help="Send adaptation state from file")
         args = parser.parse_args()
         fenetre = Tk()
-        fenetre.geometry("500x200")
+        fenetre.geometry("800x300")
+        fenetre.title("ASR")
         interface = Interface(fenetre,args)
         interface.mainloop()
 

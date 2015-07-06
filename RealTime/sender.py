@@ -16,21 +16,24 @@ class Sender(threading.Thread):
       
         
     def run(self):
-    	
-		self.isrunning = True
 
-		while self.isrunning:
-			while self.isrunning and len(self.recorder.buffer) < 2:
-				time.sleep(0.001)
 
-			if self.condition() and self.isSending:
-				k = len(self.recorder.buffer) - 1
-				indice_last_condition = k
-				while self.isrunning and self.condition() and self.isSending:
-					if k < len(self.recorder.buffer):
-						self.ws.send_data(b''.join(self.recorder.buffer[k]))    
-						k+=1 
-				wf = wave.open("data/wav_"+str(self.num_seg)+".wav", 'wb')
+        print "* Sender initialised !"
+        self.isrunning = True
+
+        while self.isrunning:
+            while self.isrunning and len(self.recorder.buffer) < 2:
+                time.sleep(0.001)
+
+            if self.condition() and self.isSending:
+                k = len(self.recorder.buffer) - 1
+                indice_last_condition = k
+                while self.isrunning and self.condition() and self.isSending:
+                    if k < len(self.recorder.buffer):
+                        self.ws.send_data(b''.join(self.recorder.buffer[k]))    
+                        k+=1 
+                print "Boucle finie !"
+                wf = wave.open("data/wav_"+str(self.num_seg)+".wav", 'wb')
                 wf.setnchannels(self.recorder.channels)
                 wf.setsampwidth(self.recorder.p.get_sample_size(self.recorder.format))
                 wf.setframerate(self.recorder.rate)
