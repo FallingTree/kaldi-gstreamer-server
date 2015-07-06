@@ -92,6 +92,7 @@ class MyClient(WebSocketClient):
                     self.final_hyps.append(trans)
                     print_trans = trans.replace("\n", "\\n")
                     print >> sys.stderr, '\r%s' % print_trans
+                    print "Time received result : ", time.strftime("%A %d %B %Y %H:%M:%S")
                     self.TextArea.delete(self.start_currTrans,"end")
                     self.TextArea.insert('end',print_trans)
                     self.start_currTrans = self.TextArea.index(INSERT)

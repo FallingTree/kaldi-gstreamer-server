@@ -50,6 +50,7 @@ class Recorder(threading.Thread):
         #self.buffer = []
 
     def start_recording(self):
+        print "Time starting recorder : ", time.strftime("%A %d %B %Y %H:%M:%S")
         self.recording = True 
 
 

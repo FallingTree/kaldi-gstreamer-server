@@ -1,4 +1,5 @@
 # -*- encoding: UTF-8 -*-
+#!/usr/bin/env python
 from Tkinter import *
 from recorder import *
 from client import *
@@ -68,7 +69,7 @@ class Interface(Frame):
 
     
     def cliquer_record(self):
-
+        
         if self.isactif == False :
             if self.premierefois:
                 self.ws.connect()

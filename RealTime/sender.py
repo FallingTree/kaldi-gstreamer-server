@@ -12,6 +12,7 @@ class Sender(threading.Thread):
     	self.isrunning = False
     	self.isSending = False
     	self.num_seg = 0
+        self.i = 0
 
       
         
@@ -28,6 +29,7 @@ class Sender(threading.Thread):
             if self.condition() and self.isSending:
                 k = len(self.recorder.buffer) - 1
                 indice_last_condition = k
+                print "Time opening connexion : ", time.strftime("%A %d %B %Y %H:%M:%S")
                 while self.isrunning and self.condition() and self.isSending:
                     if k < len(self.recorder.buffer):
                         self.ws.send_data(b''.join(self.recorder.buffer[k]))    
