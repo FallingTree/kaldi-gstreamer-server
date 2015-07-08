@@ -2,17 +2,19 @@
 import time
 import threading
 import wave
+import audioop
 
 class Sender(threading.Thread): 
-    def __init__(self,ws,recorder,condition):
+    def __init__(self,ws,recorder,threshold):
     	threading.Thread.__init__(self) 
     	self.ws = ws
     	self.recorder = recorder
-    	self.condition = condition
     	self.isrunning = False
     	self.isSending = False
     	self.num_seg = 0
         self.i = 0
+        self.THRES_VALUE = int(threshold)
+
 
       
         
@@ -23,18 +25,18 @@ class Sender(threading.Thread):
         self.isrunning = True
 
         while self.isrunning:
-            while self.isrunning and len(self.recorder.buffer) < 2:
+            while self.isrunning and len(self.recorder.buffer) < 5:
                 time.sleep(0.001)
 
-            if self.condition() and self.isSending:
-                k = len(self.recorder.buffer) - 1
+            k = len(self.recorder.buffer) - 2
+            if self.condition(k) and self.isSending:
                 indice_last_condition = k
-                print "Time opening connexion : ", time.strftime("%A %d %B %Y %H:%M:%S")
-                while self.isrunning and self.condition() and self.isSending:
-                    if k < len(self.recorder.buffer):
-                        self.ws.send_data(b''.join(self.recorder.buffer[k]))    
+                print "** Time start sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
+                while self.isrunning and self.condition(k) and self.isSending:
+                    if k < len(self.recorder.buffer)-2:
+                        self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
                         k+=1 
-                print "Boucle finie !"
+                print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
                 wf = wave.open("data/wav_"+str(self.num_seg)+".wav", 'wb')
                 wf.setnchannels(self.recorder.channels)
                 wf.setsampwidth(self.recorder.p.get_sample_size(self.recorder.format))
@@ -56,4 +58,19 @@ class Sender(threading.Thread):
 
     def start_sending(self):
     	self.isSending = True
+
+# Simple fonction vérifiant le niveau d'énergie pour détecter ou non la présence de parole
+    def condition(self,k):
+        #width=2 for format=paInt16
+        if audioop.rms(self.recorder.buffer[k],2) >= self.THRES_VALUE:
+            return True
+
+        return False
+
+    def set_threshold(self,threshold):
+        self.THRES_VALUE = threshold
+
+
+
+
 

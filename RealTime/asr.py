@@ -1,5 +1,6 @@
-# -*- encoding: UTF-8 -*-
 #!/usr/bin/env python
+# -*- encoding: UTF-8 -*-
+
 from Tkinter import *
 from recorder import *
 from client import *
@@ -9,6 +10,8 @@ import sys
 import argparse
 import os
 import shutil
+import pyaudio
+import audioop
 
 
 class Interface(Frame):
@@ -45,6 +48,9 @@ class Interface(Frame):
         bouton_record = Button(self.frame1, text="Record", command=self.cliquer_record)
         bouton_record.pack(fill=X)
 
+        self.bouton_set = Button(self.frame1, text="Set", command=self.cliquer_set)
+        self.bouton_set.pack(fill=X)
+
         self.message = Label(self.frame2, text="Transcription : OFF")
         self.message.pack(side="left")
 
@@ -64,12 +70,7 @@ class Interface(Frame):
 
         self.premierefois = True
 
-
-        def condition():
-            return True
-
-
-        self.sender = Sender(self.ws,self.recorder,condition) 
+        self.sender = Sender(self.ws,self.recorder,args.threshold) 
 
 
 
@@ -91,7 +92,7 @@ class Interface(Frame):
             self.sender.start_sending()
 
         else:
-            print "Déjà en cours"
+            print "* Transcription déjà en cours !"
 
 
     def cliquer_stop(self):
@@ -106,6 +107,7 @@ class Interface(Frame):
 
         if self.isactif:
             self.ws.send("EOS")
+            self.ws.close()
         if self.recorder.isrunning:
             self.recorder.stop_recoding()
             self.recorder.stop()
@@ -117,10 +119,37 @@ class Interface(Frame):
         self.quit()
         print "* Leaving"
 
-        
-        
+ 
+    def cliquer_set(self):
+        if self.isactif == False :
+            p = pyaudio.PyAudio()
+            stream = p.open(format=self.recorder.format,
+                channels=self.recorder.channels,
+                rate=self.recorder.rate,
+                input=True,
+                frames_per_buffer=self.recorder.chunk)
 
-        
+            frames = []
+            print "* Recording speech sample"
+            for i in range(0, int(self.recorder.rate / self.recorder.chunk * 10)):
+                data = stream.read(self.recorder.chunk)
+                frames.append(data)
+
+            print("* Done recording speech sample")
+
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+
+
+            result = 0
+            for chunk in frames:
+                result+=audioop.rms(chunk,2)
+            result = result / len(frames) - 2000
+
+            print "Thresold level = ", result 
+            self.sender.set_threshold(result)
+
 
 
 
@@ -134,6 +163,7 @@ def main():
         parser.add_argument('--save-adaptation-state', help="Save adaptation state to file")
         parser.add_argument('--send-adaptation-state', help="Send adaptation state from file")
         parser.add_argument('--geometry', default="700x200", help="Size of the window")
+        parser.add_argument('-t','--threshold', default=30000, help="Min value of the rms of the audio which is considered as speech")
         args = parser.parse_args()
 
 

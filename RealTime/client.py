@@ -53,7 +53,7 @@ class MyClient(WebSocketClient):
         self.send(data, binary=True)
 
     def opened(self):
-        print "Socket opened!"
+        print "* Socket opened!"
         def send_data_to_ws():
             if self.send_adaptation_state_filename is not None:
                 print >> sys.stderr, "Sending adaptation state from %s" % self.send_adaptation_state_filename
@@ -92,7 +92,7 @@ class MyClient(WebSocketClient):
                     self.final_hyps.append(trans)
                     print_trans = trans.replace("\n", "\\n")
                     print >> sys.stderr, '\r%s' % print_trans
-                    print "Time received result : ", time.strftime("%A %d %B %Y %H:%M:%S")
+                    print "** Time received result : ", time.strftime("%A %d %B %Y %H:%M:%S")
                     self.TextArea.delete(self.start_currTrans,"end")
                     self.TextArea.insert('end',print_trans)
                     self.start_currTrans = self.TextArea.index(INSERT)

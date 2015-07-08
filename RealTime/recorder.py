@@ -23,6 +23,7 @@ class Recorder(threading.Thread):
       
         
     def run(self): 
+        print "* Recorder initialised"
         self.state = 1
         self.isrunning = True
         self.stream = self.p.open(format=self.format,
@@ -50,7 +51,7 @@ class Recorder(threading.Thread):
         #self.buffer = []
 
     def start_recording(self):
-        print "Time starting recorder : ", time.strftime("%A %d %B %Y %H:%M:%S")
+        print "** Time starting recorder : ", time.strftime("%A %d %B %Y %H:%M:%S")
         self.recording = True 
 
 
