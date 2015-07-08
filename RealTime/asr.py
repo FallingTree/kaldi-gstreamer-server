@@ -54,6 +54,9 @@ class Interface(Frame):
         self.message = Label(self.frame2, text="Transcription : OFF")
         self.message.pack(side="left")
 
+        self.latence = Label(self.frame2, text="Subs Latence : undefined")
+        self.latence.pack(side="right")
+
         self.TextArea = Text(self.frame3)
         self.ScrollBar = Scrollbar(self.frame3)
         self.ScrollBar.config(command=self.TextArea.yview)
@@ -64,7 +67,7 @@ class Interface(Frame):
 
         # Objets gérant la transcription        
         content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)  
-        self.ws = MyClient(self.TextArea, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
+        self.ws = MyClient(self.TextArea,self.latence, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
                           save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
         self.recorder = Recorder(args.rate)
 

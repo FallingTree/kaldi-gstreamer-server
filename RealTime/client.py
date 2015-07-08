@@ -29,7 +29,7 @@ def rate_limited(maxPerSecond):
 
 class MyClient(WebSocketClient):
 
-    def __init__(self,TextArea, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
+    def __init__(self,TextArea,latence, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
@@ -39,15 +39,19 @@ class MyClient(WebSocketClient):
         self.final_hyp_queue = Queue.Queue()
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
-        self.currSegment = -1
         self.encours = False
         self.segment_sending = 0 
         self.TextArea = TextArea
+        self.latence = latence
         self.currSegment = -1
         self.nextSegment = 0
         self.fichier_ref = None
         self.start_currTrans = "1.0"
         self.trans = []
+        self.premiere_hypothese = True
+        self.time_received = None
+        self.time_sent = None
+
     @rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
@@ -99,6 +103,7 @@ class MyClient(WebSocketClient):
                     if self.fichier_ref is not None:
                         self.fichier_ref.write("Hypothese finale : "+print_trans+"\n")
                     self.trans = []
+                    self.premiere_hypothese = True
 
                 else:
                     print_trans = trans.replace("\n", "\\n")
@@ -109,6 +114,12 @@ class MyClient(WebSocketClient):
                     if self.fichier_ref is not None:
                         self.fichier_ref.write("Hypothese intermediaire : "+print_trans+"\n")
                     
+                    if self.premiere_hypothese and self.time_sent is not None:
+                        self.time_received = time.time()
+                        self.latence["text"] = "Subs Latence : "+str(self.time_received-self.time_sent)
+                        self.premiere_hypothese = False
+
+
                     # On supprime la partie de la transcription déja affiché pour ne pas l'écrire de nouveau
                     transcription = str(print_trans.encode('utf-8'))
                     chaine = transcription.replace('.','')
@@ -149,5 +160,8 @@ class MyClient(WebSocketClient):
 
     def set_nextSegment(self,numSegment):
         self.nextSegment = numSegment
+
+    def set_time_sent(self,time_sent):
+        self.time_sent = time_sent
 
 

@@ -14,9 +14,7 @@ class Sender(threading.Thread):
     	self.num_seg = 0
         self.i = 0
         self.THRES_VALUE = int(threshold)
-
-
-      
+ 
         
     def run(self):
 
@@ -32,6 +30,7 @@ class Sender(threading.Thread):
             if self.condition(k) and self.isSending:
                 indice_last_condition = k
                 print "** Time start sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
+                self.ws.set_time_sent(time.time())
                 while self.isrunning and self.condition(k) and self.isSending:
                     if k < len(self.recorder.buffer)-2:
                         self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
