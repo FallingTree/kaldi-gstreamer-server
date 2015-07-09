@@ -33,24 +33,20 @@ class MyClient(WebSocketClient):
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
-        self.frames = None
         self.byterate = byterate
         self.isSending = True
         self.final_hyp_queue = Queue.Queue()
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
-        self.encours = False
-        self.segment_sending = 0 
+
         self.TextArea = TextArea
         self.latence = latence
-        self.currSegment = -1
-        self.nextSegment = 0
-        self.fichier_ref = None
+
         self.start_currTrans = "1.0"
         self.trans = []
         self.premiere_hypothese = True
-        self.time_received = None
-        self.time_sent = None
+
+        self.currUtterance = None
 
     @rate_limited(4)
     def send_data(self, data):
@@ -59,6 +55,8 @@ class MyClient(WebSocketClient):
     def opened(self):
         print "* Socket opened!"
         def send_data_to_ws():
+
+            # If we want to send adaptation state
             if self.send_adaptation_state_filename is not None:
                 print >> sys.stderr, "Sending adaptation state from %s" % self.send_adaptation_state_filename
                 try:
@@ -68,14 +66,16 @@ class MyClient(WebSocketClient):
                     e = sys.exc_info()[0]
                     print >> sys.stderr, "Failed to send adaptation state: ",  e
 
-            
+            # Managing the life of the Utterance
             while self.isSending:
-                if self.currSegment != self.nextSegment:
-                    if self.fichier_ref is not None:
-                        self.fichier_ref.close()
-                        print "* Transcript "+str(self.currSegment)+" saved !"
-                    self.fichier_ref = open("data/trans_"+str(self.nextSegment)+'.txt', "a")
-                    self.currSegment = self.nextSegment
+                if self.currUtterance is not None:
+                    self.currUtterance.wait_end_utt_recording()
+                    self.currUtterance.wait_final_result(6)
+                    # print "Final Result event set"
+                    self.premiere_hypothese = True
+                    self.currUtterance.set_end_utt()
+
+
                             
             self.send("EOS")
 
@@ -95,32 +95,42 @@ class MyClient(WebSocketClient):
                     #print >> sys.stderr, trans,
                     self.final_hyps.append(trans)
                     print_trans = trans.replace("\n", "\\n")
-                    print >> sys.stderr, '\r%s' % print_trans
-                    print "** Time received result : ", time.strftime("%A %d %B %Y %H:%M:%S")
+                    #print >> sys.stderr, '\r%s' % print_trans
+                    print "Hypothese finale : ", print_trans
+                    print "** Time received final result : ", time.strftime("%A %d %B %Y %H:%M:%S")
+
+                    # Deleting the partial transcription and replacing by the final hypothesis
                     self.TextArea.delete(self.start_currTrans,"end")
                     self.TextArea.insert('end',print_trans)
                     self.start_currTrans = self.TextArea.index(INSERT)
-                    if self.fichier_ref is not None:
-                        self.fichier_ref.write("Hypothese finale : "+print_trans+"\n")
-                    self.trans = []
-                    self.premiere_hypothese = True
 
+                    # Saving the transcript in the Utterance
+                    self.currUtterance.set_transcript(print_trans)
+                    self.currUtterance.set_final_result()
+
+                    # If the recording of the utterance has ended raise the event to move on the next utterance
+                    if self.currUtterance.event_end_recording.isSet():
+                        print "Setting Final Result event"
+                        self.currUtterance.set_final_result()
+                        self.currUtterance.set_got_final_result()
+                                           
                 else:
+
                     print_trans = trans.replace("\n", "\\n")
                     if len(print_trans) > 80:
                         print_trans = "... %s" % print_trans[-76:]
-                    print >> sys.stderr, '\r%s' % print_trans,
+                    # print >> sys.stderr, '\r%s' % print_trans,
+                    print "Hypothese intermediaire : ", print_trans
                     
-                    if self.fichier_ref is not None:
-                        self.fichier_ref.write("Hypothese intermediaire : "+print_trans+"\n")
-                    
-                    if self.premiere_hypothese and self.time_sent is not None:
-                        self.time_received = time.time()
-                        self.latence["text"] = "Subs Latence : "+str(self.time_received-self.time_sent)
+                    # If 1st hypothesis of the utterance, we store the time and compute the time it took to transcribe
+                    if self.premiere_hypothese:
+                        self.currUtterance.set_first_result()
+                        latency =  self.currUtterance.get_latence()
+                        self.latence["text"] = "Subs Latence : %.2f s" % latency
                         self.premiere_hypothese = False
 
 
-                    # On supprime la partie de la transcription déja affiché pour ne pas l'écrire de nouveau
+                    # Deleting the part of the result that was already previouly written in the TextArea
                     transcription = str(print_trans.encode('utf-8'))
                     chaine = transcription.replace('.','')
                     chaine = chaine.split()
@@ -132,7 +142,8 @@ class MyClient(WebSocketClient):
                     self.trans += chaine
                     result = " ".join(chaine)
                     self.TextArea.insert('end',result+" ")
-                        
+
+
             if 'adaptation_state' in response:
                 if self.save_adaptation_state_filename:
                     print >> sys.stderr, "Saving adaptation state to %s" % self.save_adaptation_state_filename
@@ -158,10 +169,8 @@ class MyClient(WebSocketClient):
     def stop_Sending(self):
         self.isSending = False
 
-    def set_nextSegment(self,numSegment):
-        self.nextSegment = numSegment
+    def set_utterance(self,utterance):
+        self.currUtterance = utterance
 
-    def set_time_sent(self,time_sent):
-        self.time_sent = time_sent
 
 

@@ -12,13 +12,12 @@ import os
 import shutil
 import pyaudio
 import audioop
+from utterance import *
 
 
+# Class that manages the graphic interface
 class Interface(Frame):
-    
-    """Notre fenêtre principale.
-    Tous les widgets sont stockés comme attributs de cette fenêtre."""
-    
+       
     def __init__(self, fenetre, args, **kwargs):
 
         fenetre.geometry(args.geometry)
@@ -64,17 +63,16 @@ class Interface(Frame):
         self.ScrollBar.pack(side=RIGHT, fill=Y)
         self.TextArea.pack(expand=YES, fill=BOTH,side='bottom')        
         self.isactif = False
+        self.premierefois = True
 
-        # Objets gérant la transcription        
+        # Objets gérant la transcription
+        
+
         content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)  
         self.ws = MyClient(self.TextArea,self.latence, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
                           save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
         self.recorder = Recorder(args.rate)
-
-        self.premierefois = True
-
-        self.sender = Sender(self.ws,self.recorder,args.threshold) 
-
+        self.sender = Sender(self.ws,self.recorder,args.threshold)
 
 
     
@@ -90,9 +88,10 @@ class Interface(Frame):
             self.message["text"] = "Transcirition : ON"
             self.isactif = True
 
-
+            
             self.recorder.start_recording()
-            self.sender.start_sending()
+            list_utt = List_utterance(time.time())
+            self.sender.start_sending(list_utt)
 
         else:
             print "* Transcription déjà en cours !"
@@ -100,29 +99,36 @@ class Interface(Frame):
 
     def cliquer_stop(self):
 
-        self.isactif = False
-        self.message["text"] = "Transcirition : OFF"
+        if self.isactif:
+            self.isactif = False
+            self.message["text"] = "Transcirition : OFF"
 
-        self.recorder.stop_recoding()
-        self.sender.stop_sending()
+            
+            self.recorder.stop_recoding()
+            self.recorder.save_wav()
+            self.sender.stop_sending()
+
 
     def cliquer_quit(self):
 
         if self.isactif:
+            self.ws.currUtterance.event_end_recording.set()
             self.ws.send("EOS")
             self.ws.close()
-        if self.recorder.isrunning:
-            self.recorder.stop_recoding()
-            self.recorder.stop()
-            self.recorder.join()
-        if self.sender.isrunning:
-            self.sender.stop_sending()
-            self.sender.stop()
-            self.sender.join()
+            if self.recorder.isrunning:
+                self.recorder.stop_recoding()
+                self.recorder.stop()
+                self.recorder.join()
+            if self.sender.isrunning:
+                self.sender.stop_sending()
+                self.sender.stop()
+                self.sender.join()
+
         self.quit()
         print "* Leaving"
+        sys.exit(0)
 
- 
+    # Function for setting the thresold level for speech recognition
     def cliquer_set(self):
         if self.isactif == False :
             p = pyaudio.PyAudio()
@@ -138,17 +144,21 @@ class Interface(Frame):
                 data = stream.read(self.recorder.chunk)
                 frames.append(data)
 
+
             print("* Done recording speech sample")
 
             stream.stop_stream()
             stream.close()
             p.terminate()
 
+            p = None
+            stream = None
 
             result = 0
             for chunk in frames:
                 result+=audioop.rms(chunk,2)
-            result = result / len(frames) - 2000
+            result = result / len(frames)
+            result+= -result/5
 
             print "Thresold level = ", result 
             self.sender.set_threshold(result)
@@ -171,19 +181,7 @@ def main():
 
 
 
-        if os.path.exists('data'):
-
-            folder = 'data'
-            for the_file in os.listdir(folder):
-                file_path = os.path.join(folder, the_file)
-                try:
-                    if os.path.isfile(file_path):
-                        os.unlink(file_path)
-                except Exception, e:
-                    print e
-
-
-        else :      
+        if not os.path.exists('data'):   
             os.makedirs('data')
 
         fenetre = Tk()
