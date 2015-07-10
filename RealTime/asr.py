@@ -13,6 +13,7 @@ import shutil
 import pyaudio
 import audioop
 from utterance import *
+from recorder_simulated import *
 
 
 # Class that manages the graphic interface
@@ -64,14 +65,20 @@ class Interface(Frame):
         self.TextArea.pack(expand=YES, fill=BOTH,side='bottom')        
         self.isactif = False
         self.premierefois = True
+        self.args = args
 
-        # Objets gérant la transcription
-        
-
+        # Objets gérant la transcription     
         content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)  
         self.ws = MyClient(self.TextArea,self.latence, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
                           save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
-        self.recorder = Recorder(args.rate)
+        
+        if args.mode == 'live':
+            self.recorder = Recorder(args.rate)
+
+        else:
+
+            self.recorder = Recorder_simulated(args.wav)
+
         self.sender = Sender(self.ws,self.recorder,args.threshold)
 
 
@@ -111,18 +118,22 @@ class Interface(Frame):
 
     def cliquer_quit(self):
 
+        self.cliquer_stop()
+        
         if self.isactif:
             self.ws.currUtterance.event_end_recording.set()
+
+        if not self.premierefois:
             self.ws.send("EOS")
             self.ws.close()
-            if self.recorder.isrunning:
-                self.recorder.stop_recoding()
-                self.recorder.stop()
-                self.recorder.join()
-            if self.sender.isrunning:
-                self.sender.stop_sending()
-                self.sender.stop()
-                self.sender.join()
+                
+                
+        if self.recorder.isAlive():
+            self.recorder.stop()
+            self.recorder.join()
+        if self.sender.isAlive():
+            self.sender.stop()
+            self.sender.join()
 
         self.quit()
         print "* Leaving"
@@ -130,38 +141,44 @@ class Interface(Frame):
 
     # Function for setting the thresold level for speech recognition
     def cliquer_set(self):
+
         if self.isactif == False :
-            p = pyaudio.PyAudio()
-            stream = p.open(format=self.recorder.format,
-                channels=self.recorder.channels,
-                rate=self.recorder.rate,
-                input=True,
-                frames_per_buffer=self.recorder.chunk)
+            if self.args.mode == 'live' :
+                p = pyaudio.PyAudio()
+                stream = p.open(format=self.recorder.format,
+                    channels=self.recorder.channels,
+                    rate=self.recorder.rate,
+                    input=True,
+                    frames_per_buffer=self.recorder.chunk)
 
-            frames = []
-            print "* Recording speech sample"
-            for i in range(0, int(self.recorder.rate / self.recorder.chunk * 10)):
-                data = stream.read(self.recorder.chunk)
-                frames.append(data)
+                frames = []
+                print "* Recording speech sample"
+                for i in range(0, int(self.recorder.rate / self.recorder.chunk * 10)):
+                    data = stream.read(self.recorder.chunk)
+                    frames.append(data)
 
 
-            print("* Done recording speech sample")
+                print("* Done recording speech sample")
 
-            stream.stop_stream()
-            stream.close()
-            p.terminate()
+                stream.stop_stream()
+                stream.close()
+                p.terminate()
 
-            p = None
-            stream = None
+                p = None
+                stream = None
 
-            result = 0
-            for chunk in frames:
-                result+=audioop.rms(chunk,2)
-            result = result / len(frames)
-            result+= -result/5
+                result = 0
+                for chunk in frames:
+                    result+=audioop.rms(chunk,2)
+                result = result / len(frames)
+                result+= -result/5
 
-            print "Thresold level = ", result 
-            self.sender.set_threshold(result)
+                print "Thresold level = ", result 
+                self.sender.set_threshold(result)
+
+            else:
+
+                print "Not supported in simulation mode"
 
 
 
@@ -176,10 +193,20 @@ def main():
         parser.add_argument('--save-adaptation-state', help="Save adaptation state to file")
         parser.add_argument('--send-adaptation-state', help="Send adaptation state from file")
         parser.add_argument('--geometry', default="700x200", help="Size of the window")
-        parser.add_argument('-t','--threshold', default=30000, help="Min value of the rms of the audio which is considered as speech")
+        parser.add_argument('-t','--threshold', default=1500, help="Min value of the rms of the audio which is considered as speech")
+        parser.add_argument('--mode', default='live', help="simulation or live")
+        parser.add_argument('-w', '--wav', default='', help="Wav for simulation mode")
         args = parser.parse_args()
 
 
+        if args.mode=='simulation':
+            if not os.path.exists(args.wav):
+                print "Wav do not exists"
+                exit()
+
+        if not (args.mode == 'simulation' or args.mode == 'live'):
+            print "Mode not recognised"
+            exit()
 
         if not os.path.exists('data'):   
             os.makedirs('data')

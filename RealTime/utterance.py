@@ -15,10 +15,12 @@ class Utterance:
 		self.event_end = threading.Event()
 		self.event_end_recording = threading.Event()
 		self.event_got_final_result = threading.Event()
+		self.event_started = threading.Event()
 
 	def set_start_utt_recording(self,recorder_time_data):
 		self.time_start_sending=time.time()
 		self.time_start_record=recorder_time_data
+		self.event_started.set()
     	
 	def set_end_utt_recording(self,recorder_time_data):
 		self.time_end_sending=time.time()
@@ -68,13 +70,15 @@ class List_utterance(object):
 	def generate_transcript(self,filename):
 		transcript = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
 		transcript+= "<!DOCTYPE Trans SYSTEM \"trans-14.dtd\">\n"
-		transcript+= "<Trans scribe=\"ASR\" audio_filename="+filename+".wav version=\"4\" version_date="+time.strftime("%y%m%d")+" xml:lang=\"French\">\n"
+		transcript+= "<Trans scribe=\"ASR\" audio_filename=\""+str(filename)+"\" version=\"4\" version_date=\""+str(time.strftime("%y%m%d"))+"\" xml:lang=\"French\">\n"
+		transcript+= "<Episode>\n<Section type=\"report\" startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
+		transcript+= "<Turn startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 		for utterance in self.list:
-			transcript+="\n<Sync time="+str(utterance.time_start_record-self.time_recording_begin)+"/>\n"
+			transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_start_record-self.time_recording_begin)
 			transcript+=utterance.transcript
-			transcript+="\n<Sync time="+str(utterance.time_end_record-self.time_recording_begin)+"/>\n"
-		
-		fichier_trs = open(filename+'.trs', "a")
+			transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_end_record-self.time_recording_begin)
+		transcript+="\n</Turn>\n</Section>\n</Episode>\n</Trans>"
+		fichier_trs = open("data/"+filename+'.trs', "a")
 		fichier_trs.write(transcript)
 		fichier_trs.close()
 
@@ -88,7 +92,7 @@ class List_utterance(object):
 						str(utterance.time_start_sending)+';'+str(utterance.time_end_sending)+';'+\
 						str(utterance.time_first_result)+';'+str(utterance.time_final_result)+'\n'
 
-		fichier_timing = open(filename+'.txt', "a")
+		fichier_timing = open("data/"+filename+'.txt', "a")
 		fichier_timing.write(chaine)
 		fichier_timing.close()
 

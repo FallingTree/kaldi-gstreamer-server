@@ -12,7 +12,7 @@ class Recorder(threading.Thread):
         self.p = pyaudio.PyAudio()
         self.isrunning = False
         self.buffer = []
-        self.chunk = rate/8
+        self.chunk = 1200
         self.format = pyaudio.paInt16
         self.channels = 1
         self.rate = 16000
@@ -56,12 +56,12 @@ class Recorder(threading.Thread):
         self.buffer = []
         print "** Time starting recorder : ", time.strftime("%A %d %B %Y %H:%M:%S")
         self.recording = True
-        self.filename = "data/record_"+time.strftime("%d-%m-%Y_%H-%M-%S")
+        self.filename = "record_"+time.strftime("%d-%m-%Y_%H-%M-%S")
 
     def save_wav(self):
         # Opening the wav for saving the audio
 
-        self.wf = wave.open(self.filename+".wav", 'wb')
+        self.wf = wave.open("data/"+self.filename+".wav", 'wb')
         self.wf.setnchannels(self.channels)
         self.wf.setsampwidth(self.p.get_sample_size(self.format))
         self.wf.setframerate(self.rate)

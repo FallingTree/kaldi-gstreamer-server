@@ -47,6 +47,7 @@ class MyClient(WebSocketClient):
         self.premiere_hypothese = True
 
         self.currUtterance = None
+        self.newUtt = threading.Event()
 
     @rate_limited(4)
     def send_data(self, data):
@@ -69,11 +70,13 @@ class MyClient(WebSocketClient):
             # Managing the life of the Utterance
             while self.isSending:
                 if self.currUtterance is not None:
+                    self.currUtterance.event_started.wait()
                     self.currUtterance.wait_end_utt_recording()
-                    self.currUtterance.wait_final_result(6)
+                    self.currUtterance.wait_final_result(0.1)
                     # print "Final Result event set"
                     self.premiere_hypothese = True
                     self.currUtterance.set_end_utt()
+                    self.newUtt.wait()
 
 
                             
@@ -104,16 +107,18 @@ class MyClient(WebSocketClient):
                     self.TextArea.insert('end',print_trans)
                     self.start_currTrans = self.TextArea.index(INSERT)
 
-                    # Saving the transcript in the Utterance
-                    self.currUtterance.set_transcript(print_trans)
+                    self.trans = []
                     self.currUtterance.set_final_result()
 
+                    
                     # If the recording of the utterance has ended raise the event to move on the next utterance
                     if self.currUtterance.event_end_recording.isSet():
                         print "Setting Final Result event"
                         self.currUtterance.set_final_result()
                         self.currUtterance.set_got_final_result()
-                                           
+                        self.newUtt.wait()
+                        
+                                          
                 else:
 
                     print_trans = trans.replace("\n", "\\n")
@@ -143,6 +148,12 @@ class MyClient(WebSocketClient):
                     result = " ".join(chaine)
                     self.TextArea.insert('end',result+" ")
 
+                    # Saving the transcript in the Utterance
+                    self.currUtterance.set_transcript(result+" ")
+
+
+                
+
 
             if 'adaptation_state' in response:
                 if self.save_adaptation_state_filename:
@@ -171,6 +182,7 @@ class MyClient(WebSocketClient):
 
     def set_utterance(self,utterance):
         self.currUtterance = utterance
+        self.newUtt.set()
 
 
 
