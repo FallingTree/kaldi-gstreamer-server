@@ -67,7 +67,7 @@ class Sender(threading.Thread):
                     print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
 
             if not self.saved:
-                self.list_utt.generate_transcript(self.recorder.filename)  
+                self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)  
                 self.list_utt.generate_timing(self.recorder.filename)
                 # self.list_utt.generate_wav(self.recorder.filename)
                 self.saved = True

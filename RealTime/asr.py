@@ -64,38 +64,32 @@ class Interface(Frame):
         self.ScrollBar.pack(side=RIGHT, fill=Y)
         self.TextArea.pack(expand=YES, fill=BOTH,side='bottom')        
         self.isactif = False
-        self.premierefois = True
         self.args = args
-
-        # Objets gérant la transcription     
-        content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)  
-        self.ws = MyClient(self.TextArea,self.latence, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
-                          save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
-        
-        if args.mode == 'live':
-            self.recorder = Recorder(args.rate)
-
-        else:
-
-            self.recorder = Recorder_simulated(args.wav)
-
-        self.sender = Sender(self.ws,self.recorder,args)
+        self.threshold = 1000
 
 
     
     def cliquer_record(self):
 
         if self.isactif == False :
-            if self.premierefois:
-                self.ws.connect()
-                self.recorder.start()
-                self.sender.start()
-                self.premierefois = False
+
+            # Objets gérant la transcription     
+            content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(self.args.rate/2)  
+            self.ws = MyClient(self.TextArea,self.latence, self.args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=self.args.rate,
+                              save_adaptation_state_filename=self.args.save_adaptation_state, send_adaptation_state_filename=self.args.send_adaptation_state)            
+            if self.args.mode == 'live':
+                self.recorder = Recorder(self.args.rate)
+            else:
+                self.recorder = Recorder_simulated(self.args.wav)
+            self.sender = Sender(self.ws,self.recorder,self.args)
+            self.ws.connect()
+            self.recorder.start()
+            self.sender.set_threshold(self.threshold)
+            self.sender.start()
+
 
             self.message["text"] = "Transcirition : ON"
-            self.isactif = True
-
-            
+            self.isactif = True           
             self.recorder.start_recording()
             list_utt = List_utterance(time.time())
             self.sender.start_sending(list_utt)
@@ -107,37 +101,32 @@ class Interface(Frame):
     def cliquer_stop(self):
 
         if self.isactif:
+            self.ws.currUtterance.event_end_recording.set()
+            self.recorder.stop_recoding()
+            self.recorder.save_wav()
+            self.sender.stop_sending()
+            time.sleep(1.0)
+            self.ws.send("EOS")
+            self.ws.close()
+            if self.recorder.isAlive():
+                self.recorder.stop()
+                self.recorder.join()
+
+            if self.sender.isAlive():
+                self.sender.stop()
+                self.sender.join()
+
+            self.sender = None
+            self.ws = None
+            time.sleep(1)
+
             self.isactif = False
             self.message["text"] = "Transcirition : OFF"
 
             
-            self.recorder.stop_recoding()
-            self.recorder.save_wav()
-            self.sender.stop_sending()
-
-
     def cliquer_quit(self):
 
         self.cliquer_stop()
-        
-        if self.isactif:
-            self.ws.currUtterance.event_end_recording.set()
-
-        if not self.premierefois:
-            self.ws.send("EOS")
-            self.ws.close()
-                
-                
-        if self.recorder.isAlive():
-            self.recorder.stop()
-            self.recorder.join()
-        if self.sender.isAlive():
-            self.sender.list_utt.generate_timed_transcript(self.recorder.filename,self.args)
-            self.sender.stop()
-            self.sender.join()
-
-
-
         self.quit()
         print "* Leaving"
         sys.exit(0)
@@ -148,16 +137,16 @@ class Interface(Frame):
         if self.isactif == False :
             if self.args.mode == 'live' :
                 p = pyaudio.PyAudio()
-                stream = p.open(format=self.recorder.format,
-                    channels=self.recorder.channels,
-                    rate=self.recorder.rate,
+                stream = p.open(format=pyaudio.paInt16,
+                    channels=1,
+                    rate=16000,
                     input=True,
-                    frames_per_buffer=self.recorder.chunk)
+                    frames_per_buffer=1200)
 
                 frames = []
                 print "* Recording speech sample"
-                for i in range(0, int(self.recorder.rate / self.recorder.chunk * 10)):
-                    data = stream.read(self.recorder.chunk)
+                for i in range(0, int(16000 / 1200 * 10)):
+                    data = stream.read(1200)
                     frames.append(data)
 
 
@@ -177,7 +166,7 @@ class Interface(Frame):
                 result+= -result/5
 
                 print "Thresold level = ", result 
-                self.sender.set_threshold(result)
+                self.threshold = result
 
             else:
 

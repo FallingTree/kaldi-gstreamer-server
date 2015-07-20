@@ -124,7 +124,7 @@ class List_utterance(object):
 		transcript+= "<Episode>\n<Section type=\"report\" startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 		transcript+= "<Turn startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 
-		time.sleep(2)
+		time.sleep(5)
 		for utterance in self.list:
 			content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
 			ws = MyClient_trans(utterance.data, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
