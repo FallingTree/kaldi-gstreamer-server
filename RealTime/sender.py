@@ -6,15 +6,16 @@ import audioop
 from utterance import Utterance
 
 class Sender(threading.Thread): 
-    def __init__(self,ws,recorder,threshold):
+    def __init__(self,ws,recorder,args):
     	threading.Thread.__init__(self) 
     	self.ws = ws
     	self.recorder = recorder
     	self.isrunning = False
     	self.isSending = False
-        self.THRES_VALUE = int(threshold)
+        self.THRES_VALUE = int(args.threshold)
         self.list_utt = None 
         self.saved = False
+        self.args = args
         self.void_chunk = []
         for x in xrange(1,self.recorder.chunk):
             self.void_chunk.append(0)
@@ -46,6 +47,7 @@ class Sender(threading.Thread):
                     # Actual sending, k-1 because we want to have all the data of the beginning of the utterance
                     while self.isrunning and (self.condition(k-1) or self.condition(k) or self.condition(k+1))  and self.isSending:
                         if k < len(self.recorder.buffer)-2:
+                            utt.data.append(self.recorder.buffer[k-1])
                             self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
                             k+=1 
 
@@ -54,6 +56,9 @@ class Sender(threading.Thread):
                     self.ws.send_data(b''.join(self.recorder.buffer[k-1]))
                     self.ws.send_data(b''.join(self.recorder.buffer[k]))
                     self.ws.send_data(b''.join(self.recorder.buffer[k+1]))
+                    utt.data.append(self.recorder.buffer[k-1])
+                    utt.data.append(self.recorder.buffer[k])
+                    utt.data.append(self.recorder.buffer[k+1])
                     utt.set_end_utt_recording(self.recorder.time_recorded[k-2])
                     utt.wait_end_utt()
                     self.list_utt.add_utterance(utt)
@@ -62,8 +67,9 @@ class Sender(threading.Thread):
                     print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
 
             if not self.saved:
-                self.list_utt.generate_transcript(self.recorder.filename)
+                self.list_utt.generate_transcript(self.recorder.filename)  
                 self.list_utt.generate_timing(self.recorder.filename)
+                # self.list_utt.generate_wav(self.recorder.filename)
                 self.saved = True
 
                     

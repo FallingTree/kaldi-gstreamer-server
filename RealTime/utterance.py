@@ -1,5 +1,8 @@
 import time
 import threading
+import wave
+import pyaudio
+from client_transcript import *
 
 # A simple class to manage an utterance with the timing to generate a trs file
 class Utterance:
@@ -12,6 +15,7 @@ class Utterance:
 		self.time_end_sending = 0
 		self.time_first_result = 0
 		self.time_final_result = 0
+		self.data = []
 		self.event_end = threading.Event()
 		self.event_end_recording = threading.Event()
 		self.event_got_final_result = threading.Event()
@@ -97,6 +101,47 @@ class List_utterance(object):
 		fichier_timing.close()
 
 		print "* Timing saved"
+
+	def generate_wav(self,filename):
+		print "* Generating Wav"
+		i=1
+		for utterance in self.list:
+			wf = wave.open('tmp/'+filename+'_'+str(i)+'.wav', 'wb')
+			wf.setnchannels(1)
+			wf.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
+			wf.setframerate(16000)
+			wf.writeframes(b''.join(utterance.data))
+			wf.close()
+			print "     Wav "+str(i)+" saved !"
+			i+=1
+
+		print "* Wav generated"
+
+	def generate_timed_transcript(self,filename,args):
+		transcript = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
+		transcript+= "<!DOCTYPE Trans SYSTEM \"trans-14.dtd\">\n"
+		transcript+= "<Trans scribe=\"ASR\" audio_filename=\""+str(filename)+"\" version=\"4\" version_date=\""+str(time.strftime("%y%m%d"))+"\" xml:lang=\"French\">\n"
+		transcript+= "<Episode>\n<Section type=\"report\" startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
+		transcript+= "<Turn startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
+
+		time.sleep(2)
+		for utterance in self.list:
+			content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
+			ws = MyClient_trans(utterance.data, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
+					save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
+			ws.connect()
+			result = ws.get_full_hyp()
+			transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_start_record-self.time_recording_begin)
+			transcript+=result.encode('utf-8')
+			transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_end_record-self.time_recording_begin)
+			ws = None
+			time.sleep(1.5)
+		transcript+="\n</Turn>\n</Section>\n</Episode>\n</Trans>"
+		fichier_trs = open("data/"+filename+'_timed.trs', "a")
+		fichier_trs.write(transcript)
+		fichier_trs.close()
+
+		print" * TRS saved"
 			
 
 

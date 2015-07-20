@@ -79,7 +79,7 @@ class Interface(Frame):
 
             self.recorder = Recorder_simulated(args.wav)
 
-        self.sender = Sender(self.ws,self.recorder,args.threshold)
+        self.sender = Sender(self.ws,self.recorder,args)
 
 
     
@@ -132,8 +132,11 @@ class Interface(Frame):
             self.recorder.stop()
             self.recorder.join()
         if self.sender.isAlive():
+            self.sender.list_utt.generate_timed_transcript(self.recorder.filename,self.args)
             self.sender.stop()
             self.sender.join()
+
+
 
         self.quit()
         print "* Leaving"
