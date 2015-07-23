@@ -2,6 +2,7 @@
 # -*- encoding: UTF-8 -*-
 
 from Tkinter import *
+import tkFont
 from recorder import *
 from client import *
 from sender import *
@@ -21,6 +22,7 @@ class Interface(Frame):
        
     def __init__(self, fenetre, args, **kwargs):
 
+        self.customFont = tkFont.Font(family="Helvetica", size=args.fontsize)
         fenetre.geometry(args.geometry)
         fenetre.title("ASR")
         fenetre.wm_attributes('-topmost', 1)
@@ -36,7 +38,7 @@ class Interface(Frame):
         self.frame2.pack(side=TOP, fill=X)
 
         self.frame3 = Frame(self, padx=10, pady=10)
-        self.frame3.pack(side=LEFT,fill=BOTH,expand=YES)
+        self.frame3.pack(side=BOTTOM,fill=BOTH,expand=YES)
         
         # Création de nos widgets
         self.bouton_quitter = Button(self.frame1, text="Quitter", command=self.cliquer_quit)
@@ -51,13 +53,17 @@ class Interface(Frame):
         self.bouton_set = Button(self.frame1, text="Set", command=self.cliquer_set)
         self.bouton_set.pack(fill=X)
 
+        self.condition = Label(self.frame2, text=" X   ")
+        self.condition.pack(side="left")
+
         self.message = Label(self.frame2, text="Transcription : OFF")
         self.message.pack(side="left")
 
         self.latence = Label(self.frame2, text="Subs Latence : undefined")
         self.latence.pack(side="right")
 
-        self.TextArea = Text(self.frame3)
+
+        self.TextArea = Text(self.frame3 ,font=self.customFont)
         self.ScrollBar = Scrollbar(self.frame3)
         self.ScrollBar.config(command=self.TextArea.yview)
         self.TextArea.config(yscrollcommand=self.ScrollBar.set)
@@ -81,7 +87,7 @@ class Interface(Frame):
                 self.recorder = Recorder(self.args.rate)
             else:
                 self.recorder = Recorder_simulated(self.args.wav)
-            self.sender = Sender(self.ws,self.recorder,self.args)
+            self.sender = Sender(self.ws,self.recorder,self.args,self.condition)
             self.ws.connect()
             self.recorder.start()
             self.sender.set_threshold(self.threshold)
@@ -188,6 +194,7 @@ def main():
         parser.add_argument('-t','--threshold', default=1500, help="Min value of the rms of the audio which is considered as speech")
         parser.add_argument('--mode', default='live', help="simulation or live")
         parser.add_argument('-w', '--wav', default='', help="Wav for simulation mode")
+        parser.add_argument('-f', '--fontsize', default=20, help="Font size of the subs")
         args = parser.parse_args()
 
 
@@ -202,6 +209,9 @@ def main():
 
         if not os.path.exists('data'):   
             os.makedirs('data')
+
+        if not os.path.exists('tmp'):   
+            os.makedirs('tmp')
 
         fenetre = Tk()
         interface = Interface(fenetre,args)

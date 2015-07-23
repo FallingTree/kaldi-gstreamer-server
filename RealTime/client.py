@@ -47,6 +47,7 @@ class MyClient(WebSocketClient):
         self.premiere_hypothese = True
 
         self.currUtterance = None
+        self.nextUtterance = None
         self.newUtt = threading.Event()
 
     @rate_limited(4)
@@ -69,11 +70,11 @@ class MyClient(WebSocketClient):
 
             # Managing the life of the Utterance
             while self.isSending:
-                if self.currUtterance is not None:
+                if self.currUtterance is not self.nextUtterance:
+                    self.currUtterance = self.nextUtterance
                     self.currUtterance.event_started.wait()
                     self.currUtterance.wait_end_utt_recording()
-                    self.currUtterance.wait_final_result(0.1)
-                    # print "Final Result event set"
+                    self.currUtterance.wait_final_result(0.5)
                     self.premiere_hypothese = True
                     self.currUtterance.set_end_utt()
                     self.newUtt.wait()
@@ -181,7 +182,7 @@ class MyClient(WebSocketClient):
         self.isSending = False
 
     def set_utterance(self,utterance):
-        self.currUtterance = utterance
+        self.nextUtterance = utterance
         self.newUtt.set()
 
 

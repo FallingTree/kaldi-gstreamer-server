@@ -6,7 +6,7 @@ import audioop
 from utterance import Utterance
 
 class Sender(threading.Thread): 
-    def __init__(self,ws,recorder,args):
+    def __init__(self,ws,recorder,args,textbox):
     	threading.Thread.__init__(self) 
     	self.ws = ws
     	self.recorder = recorder
@@ -16,9 +16,8 @@ class Sender(threading.Thread):
         self.list_utt = None 
         self.saved = False
         self.args = args
-        self.void_chunk = []
-        for x in xrange(1,self.recorder.chunk):
-            self.void_chunk.append(0)
+        self.textbox = textbox
+
         
     def run(self):
 
@@ -38,30 +37,31 @@ class Sender(threading.Thread):
                 k = len(self.recorder.buffer) - 1
                 if self.condition(k-1):
                     # Start of a new utterance
+                    self.textbox["text"] = " O   "
                     indice_last_condition = k
                     utt = Utterance()
-                    utt.set_start_utt_recording(self.recorder.time_recorded[k-1])
-                    self.ws.set_utterance(utt)
+                    self.list_utt.add_utterance(utt)
+                    self.list_utt.get_utt().set_start_utt_recording(self.recorder.time_recorded[k-1])
+                    self.ws.set_utterance(self.list_utt.get_utt())
                     print "** Time start sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
 
                     # Actual sending, k-1 because we want to have all the data of the beginning of the utterance
                     while self.isrunning and (self.condition(k-1) or self.condition(k) or self.condition(k+1))  and self.isSending:
                         if k < len(self.recorder.buffer)-2:
-                            utt.data.append(self.recorder.buffer[k-1])
+                            self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
                             self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
                             k+=1 
 
-                    print "Condition Finie"
                     # Most of the time here because condition became false, end of the utterance
+                    self.textbox["text"] = " X   "
                     self.ws.send_data(b''.join(self.recorder.buffer[k-1]))
                     self.ws.send_data(b''.join(self.recorder.buffer[k]))
                     self.ws.send_data(b''.join(self.recorder.buffer[k+1]))
-                    utt.data.append(self.recorder.buffer[k-1])
-                    utt.data.append(self.recorder.buffer[k])
-                    utt.data.append(self.recorder.buffer[k+1])
-                    utt.set_end_utt_recording(self.recorder.time_recorded[k-2])
-                    utt.wait_end_utt()
-                    self.list_utt.add_utterance(utt)
+                    self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
+                    self.list_utt.get_utt().data.append(self.recorder.buffer[k])
+                    self.list_utt.get_utt().data.append(self.recorder.buffer[k+1])
+                    self.list_utt.get_utt().set_end_utt_recording(self.recorder.time_recorded[k-2])
+                    
                     print "Nombre d'uttérances :", len(self.list_utt.list)
                     utt = None
                     print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")

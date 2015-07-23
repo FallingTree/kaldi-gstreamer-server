@@ -71,6 +71,12 @@ class List_utterance(object):
 	def add_utterance(self,utterance):
 		self.list.append(utterance)
 
+	def get_len(self):
+		return len(self.list)
+
+	def get_utt(self):
+		return self.list[len(self.list)-1]
+
 	def generate_transcript(self,filename):
 		transcript = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
 		transcript+= "<!DOCTYPE Trans SYSTEM \"trans-14.dtd\">\n"
