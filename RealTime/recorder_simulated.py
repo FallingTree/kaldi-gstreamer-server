@@ -16,6 +16,7 @@ class Recorder_simulated(threading.Thread):
         self.recording = False
         self.time_recorded = []
         self.filename = wav
+        self.ispaused = False
 
       
         
@@ -29,7 +30,7 @@ class Recorder_simulated(threading.Thread):
             temp.append(block)
 
         while self.isrunning:          
-            if self.recording:
+            if self.recording and not self.ispaused:
                 for block in temp:
                     self.buffer.append(block)
                     self.time_recorded.append(time.time())
@@ -39,6 +40,12 @@ class Recorder_simulated(threading.Thread):
   
     def stop(self):
         self.isrunning = False 
+
+    def pause(self):
+        self.ispaused = True
+
+    def restart(self):
+        self.ispaused = False
 
     def stop_recoding(self):
         self.recording = False
