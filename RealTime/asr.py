@@ -44,6 +44,9 @@ class Interface(Frame):
         self.bouton_quitter = Button(self.frame1, text="Quitter", command=self.cliquer_quit)
         self.bouton_quitter.pack(fill=X,pady=20)
 
+        self.bouton_pause = Button(self.frame1, text="Pause", command=self.cliquer_pause)
+        self.bouton_pause.pack(fill=X)
+
         self.bouton_stop = Button(self.frame1, text="Stop", command=self.cliquer_stop)
         self.bouton_stop.pack(fill=X)
 
@@ -72,6 +75,7 @@ class Interface(Frame):
         self.isactif = False
         self.args = args
         self.threshold = 1000
+        self.ispaused = False
 
 
     
@@ -106,21 +110,24 @@ class Interface(Frame):
 
     def cliquer_stop(self):
 
+
         if self.isactif:
             self.ws.currUtterance.event_end_recording.set()
             self.recorder.stop_recoding()
-            self.recorder.save_wav()
             self.sender.stop_sending()
-            time.sleep(1.0)
-            self.ws.send("EOS")
-            self.ws.close()
+            time.sleep(1)
+            self.recorder.save_wav()
+            
+            #self.ws.close()
             if self.recorder.isAlive():
                 self.recorder.stop()
                 self.recorder.join()
 
             if self.sender.isAlive():
+                self.sender.saved.wait()
                 self.sender.stop()
                 self.sender.join()
+
 
             self.sender = None
             self.ws = None
@@ -179,6 +186,21 @@ class Interface(Frame):
                 print "Not supported in simulation mode"
 
 
+    def cliquer_pause(self):
+        if self.isactif:
+            if not self.ispaused:
+                self.recorder.pause()
+                self.sender.pause()
+                self.bouton_pause["text"] = "Restart"
+                self.ws.start_currTrans = self.TextArea.index('end')
+                self.ispaused = True
+
+            else:
+                self.ispaused = False
+                self.bouton_pause["text"] = "Pause"
+                self.recorder.restart()
+                self.sender.restart()
+
 
 
 def main():
@@ -193,6 +215,7 @@ def main():
         parser.add_argument('--geometry', default="700x200", help="Size of the window")
         parser.add_argument('-t','--threshold', default=1500, help="Min value of the rms of the audio which is considered as speech")
         parser.add_argument('--mode', default='live', help="simulation or live")
+        parser.add_argument('--subs', default='no', help="At the end all the utterances are sent again in order to have a real-timed transcript but can be long")
         parser.add_argument('-w', '--wav', default='', help="Wav for simulation mode")
         parser.add_argument('-f', '--fontsize', default=20, help="Font size of the subs")
         args = parser.parse_args()

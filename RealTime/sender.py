@@ -14,9 +14,11 @@ class Sender(threading.Thread):
     	self.isSending = False
         self.THRES_VALUE = int(args.threshold)
         self.list_utt = None 
-        self.saved = False
+        self.saved = threading.Event()
         self.args = args
         self.textbox = textbox
+        self.ispaused = False
+
 
         
     def run(self):
@@ -66,27 +68,37 @@ class Sender(threading.Thread):
                     utt = None
                     print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
 
-            if not self.saved:
+            if not self.saved.isSet():
+                self.ws.send("EOS")
                 self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)  
                 self.list_utt.generate_timing(self.recorder.filename)
-                # self.list_utt.generate_wav(self.recorder.filename)
-                self.saved = True
+                self.saved.set()
+
 
                     
             
     def stop(self):
         self.isrunning = False
 
+    def pause(self):
+        self.ispaused = True
+
+    def restart(self):
+        self.ispaused = False
+
     def stop_sending(self) :
     	self.isSending = False
 
     def start_sending(self,list_utt):
-        self.saved = False
+        self.saved.clear()
     	self.isSending = True
         self.list_utt = list_utt
 
     # Simple function computing the energy of the audio signal to detect if there is speech or not
     def condition(self,k):
+
+        if self.ispaused:
+            return False
 
         if k > len(self.recorder.buffer) -1:
             return False

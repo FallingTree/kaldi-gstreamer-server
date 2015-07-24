@@ -21,6 +21,7 @@ class Recorder(threading.Thread):
         self.wf = None
         self.time_recorded = []
         self.filename = None
+        self.ispaused = False
 
       
         
@@ -34,7 +35,7 @@ class Recorder(threading.Thread):
             frames_per_buffer=self.chunk)
         
         while self.isrunning:          
-            if self.recording:
+            if self.recording and not self.ispaused:
                 data = self.stream.read(self.chunk)
                 self.buffer.append(data)
                 self.time_recorded.append(time.time())
@@ -51,6 +52,12 @@ class Recorder(threading.Thread):
 
     def stop_recoding(self):
         self.recording = False
+
+    def pause(self):
+        self.ispaused = True
+
+    def restart(self):
+        self.ispaused = False
         
     def start_recording(self):
         self.buffer = []
@@ -68,8 +75,3 @@ class Recorder(threading.Thread):
         self.wf.writeframes(b''.join(self.buffer))
         self.wf.close()
         print "* Wav "+self.filename+" saved !"
-
-        
-
-
-        

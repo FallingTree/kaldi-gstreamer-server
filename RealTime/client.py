@@ -9,6 +9,7 @@ import Queue
 import json
 from gi.repository import GObject
 from Tkinter import *
+from utterance import Utterance
 
 
 def rate_limited(maxPerSecond):
@@ -45,9 +46,9 @@ class MyClient(WebSocketClient):
         self.start_currTrans = "1.0"
         self.trans = []
         self.premiere_hypothese = True
-
-        self.currUtterance = None
-        self.nextUtterance = None
+        utt = Utterance()
+        self.currUtterance = utt
+        self.nextUtterance = utt
         self.newUtt = threading.Event()
 
     @rate_limited(4)
@@ -165,6 +166,7 @@ class MyClient(WebSocketClient):
             print >> sys.stderr, "Received error from server (status %d)" % response['status']
             if 'message' in response:
                 print >> sys.stderr, "Error message:",  response['message']
+
 
 
     def get_full_hyp(self, timeout=60):
