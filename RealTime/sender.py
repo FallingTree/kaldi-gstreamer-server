@@ -18,6 +18,8 @@ class Sender(threading.Thread):
         self.args = args
         self.textbox = textbox
         self.ispaused = False
+        self.condition_set = False
+        self.force_condition = False
 
 
         
@@ -53,6 +55,7 @@ class Sender(threading.Thread):
                             self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
                             self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
                             k+=1 
+                    print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
 
                     # Most of the time here because condition became false, end of the utterance
                     self.textbox["text"] = " X   "
@@ -66,12 +69,12 @@ class Sender(threading.Thread):
                     
                     print "Nombre d'uttérances :", len(self.list_utt.list)
                     utt = None
-                    print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
+                    
 
             if not self.saved.isSet():
                 self.ws.send("EOS")
-                self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)  
-                self.list_utt.generate_timing(self.recorder.filename)
+                #self.list_utt.generate_timing(self.recorder.filename)
+                self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)              
                 self.saved.set()
 
 
@@ -89,6 +92,9 @@ class Sender(threading.Thread):
     def stop_sending(self) :
     	self.isSending = False
 
+    def set_condition(self) :
+        self.condition_set = not self.condition_set
+
     def start_sending(self,list_utt):
         self.saved.clear()
     	self.isSending = True
@@ -96,6 +102,13 @@ class Sender(threading.Thread):
 
     # Simple function computing the energy of the audio signal to detect if there is speech or not
     def condition(self,k):
+
+        if self.args.control_condition == 'yes':
+            return self.condition_set
+
+        if self.force_condition:
+            print "ICI"
+            return False
 
         if self.ispaused:
             return False

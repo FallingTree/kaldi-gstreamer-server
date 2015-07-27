@@ -29,27 +29,32 @@ def rate_limited(maxPerSecond):
 
 class MyClient_trans(WebSocketClient):
 
-    def __init__(self, data, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
+    def __init__(self, utterance, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient_trans, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
-        self.data = data
+        self.data = utterance.data
         self.byterate = byterate
         self.final_hyp_queue = Queue.Queue()
         self.save_adaptation_state_filename = save_adaptation_state_filename
         self.send_adaptation_state_filename = send_adaptation_state_filename
+        self.utterance = utterance
+        self.first_hypothesis = True
 
-    # @rate_limited(4)
+    #@rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
 
     def opened(self):
         #print "Socket opened!"
         def send_data_to_ws():
+            self.utterance.time_start_sending_end = time.time()
             for block in self.data:
                 self.send_data(block)
+                time.sleep(0.15)
             print >> sys.stderr, "Audio sent, now sending EOS"
             self.send("EOS")
+            self.utterance.time_end_sending_end = time.time()
 
         t = threading.Thread(target=send_data_to_ws)
         t.start()
@@ -66,11 +71,15 @@ class MyClient_trans(WebSocketClient):
                     #print >> sys.stderr, trans,
                     self.final_hyps.append(trans)
                     print >> sys.stderr, '\r%s' % trans.replace("\n", "\\n")
+                    self.utterance.time_final_result_end = time.time()
                 else:
                     print_trans = trans.replace("\n", "\\n")
                     if len(print_trans) > 80:
                         print_trans = "... %s" % print_trans[-76:]
                     print >> sys.stderr, '\r%s' % print_trans,
+                    if self.first_hypothesis:
+                        self.utterance.time_first_result_end = time.time()
+                        self.first_hypothesis = False
             if 'adaptation_state' in response:
                 if self.save_adaptation_state_filename:
                     print >> sys.stderr, "Saving adaptation state to %s" % self.save_adaptation_state_filename

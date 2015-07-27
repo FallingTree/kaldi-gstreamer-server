@@ -51,7 +51,7 @@ class MyClient(WebSocketClient):
         self.nextUtterance = utt
         self.newUtt = threading.Event()
 
-    @rate_limited(4)
+    #@rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
 
