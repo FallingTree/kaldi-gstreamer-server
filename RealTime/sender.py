@@ -67,7 +67,7 @@ class Sender(threading.Thread):
                     self.list_utt.get_utt().data.append(self.recorder.buffer[k+1])
                     self.list_utt.get_utt().set_end_utt_recording(self.recorder.time_recorded[k-2])
                     
-                    print "Nombre d'uttérances :", len(self.list_utt.list)
+                    print "* Number of uttérances :", len(self.list_utt.list)
                     utt = None
                     
 

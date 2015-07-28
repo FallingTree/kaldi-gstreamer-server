@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: UTF-8 -*-
 from pylab import *
+import numpy as np
 import matplotlib.pyplot as p
 import os
 from os import walk
@@ -74,15 +75,27 @@ def main():
 			for utterance in list_utterance:
 				utterance.visualize()
 
-
-
-	a,=p.plot(liste_length_record,color="blue", linewidth=1.0, linestyle="-")
-	b,=p.plot(liste_time_record_send,color="red", linewidth=1.0, linestyle="-")
-	c,=p.plot(liste_time_sending,color="green", linewidth=1.0, linestyle="-")
-	d,=p.plot(liste_time_first_result,color="orange", linewidth=1.0, linestyle="-")
-	e,=p.plot(liste_time_final_result,color="black", linewidth=1.0, linestyle="-")
+	p.figure(1)
+	yticks = np.arange(0, max(liste_time_final_result),2)
+	a,=p.plot(liste_length_record,color="blue", linewidth=1.0, linestyle="--", marker='o')
+	b,=p.plot(liste_time_record_send,color="red", linewidth=1.0, linestyle="--", marker='x')
+	c,=p.plot(liste_time_sending,color="green", linewidth=1.0, linestyle="--",marker='p')
+	d,=p.plot(liste_time_first_result,color="orange", linewidth=1.0, linestyle="--",marker='s')
+	e,=p.plot(liste_time_final_result,color="black", linewidth=1.0, linestyle="--",marker='D')
 	p.legend([a,b,c,d,e],['Length record','Time record-send','Time sending','Latency','Time final result'])
+	p.yticks(yticks)
 	p.xlabel("Utterance")
+	p.ylabel("Temps (s)")
+	p.title("Performances ASR")
+	
+
+	p.figure(2)
+	b,=p.plot(liste_length_record,liste_time_record_send,color="red", linewidth=1.0, linestyle="", marker='x')
+	c,=p.plot(liste_length_record,liste_time_sending,color="green", linewidth=1.0, linestyle="",marker='p')
+	d,=p.plot(liste_length_record,liste_time_first_result,color="orange", linewidth=1.0, linestyle="",marker='s')
+	e,=p.plot(liste_length_record,liste_time_final_result,color="black", linewidth=1.0, linestyle="",marker='D')
+	p.legend([b,c,d,e],['Time record-send','Time sending','Latency','Time final result'])
+	p.xlabel('Length record (s)')
 	p.ylabel("Temps (s)")
 	p.title("Performances ASR")
 	p.show()

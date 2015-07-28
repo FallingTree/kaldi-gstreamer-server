@@ -225,7 +225,7 @@ def main():
         parser.add_argument('--geometry', default="700x200", help="Size of the window, format : 700x200")
         parser.add_argument('-t','--threshold', default=2500, help="Min value of the rms of the audio which is considered as speech default is 2500 but it is recommended to use set at the beginning of a session")
         parser.add_argument('--mode', default='live', help="simulation or live")
-        parser.add_argument('--subs', default='no', help="yes or no.\nAt the end all the utterances are sent again in order to have a real-timed transcript and timing for decoding but can be long")
+        parser.add_argument('--subs', default='no', help="yes or no. At the end all the utterances are sent again in order to have a real-timed transcript and timing for decoding but can be long")
         parser.add_argument('-w', '--wav', default='', help="Wav for simulation mode")
         parser.add_argument('-f', '--fontsize', default=20, help="Font size of the subs, default is 20")
         parser.add_argument('-c', '--control_condition', default="no", help="yes or no. If yes a button allows to control whether or not the condition for VAC is set or not")
