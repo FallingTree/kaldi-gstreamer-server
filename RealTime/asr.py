@@ -22,13 +22,13 @@ from VAD import *
 class Interface(Frame):
        
     def __init__(self, fenetre, args, **kwargs):
-
+        self.fenetre = fenetre
         self.customFont = tkFont.Font(family="Helvetica", size=args.fontsize)
-        fenetre.geometry(args.geometry)
-        fenetre.title("ASR")
-        fenetre.wm_attributes('-topmost', 1)
+        self.fenetre.geometry(args.geometry)
+        self.fenetre.title("ASR")
+        self.fenetre.wm_attributes('-topmost', 1)
 
-        Frame.__init__(self, fenetre, **kwargs)
+        Frame.__init__(self, self.fenetre, **kwargs)
         self.pack()
 
         # Création des frames
@@ -79,7 +79,6 @@ class Interface(Frame):
         self.threshold = 1000
         self.ispaused = False
 
-
     
     def cliquer_record(self):
 
@@ -94,9 +93,14 @@ class Interface(Frame):
             else:
                 self.recorder = Recorder_simulated(self.args)
 
-            self.sender = Sender(self.ws,self.recorder,self.args,self.condition)
-            self.ws.connect()
-            self.recorder.start()
+            self.recorder.start_recording()
+
+            self.sender = Sender(self.ws,self.recorder,self.args,self.condition, self.message)
+            try :
+                self.ws.connect()
+            except:
+                self.ws.decoder_available = False
+
             self.sender.set_threshold(self.threshold)
             self.sender.start()
 
@@ -106,10 +110,14 @@ class Interface(Frame):
 
             self.message["text"] = "Transcirition : ON"
             self.isactif = True           
-            self.recorder.start_recording()
+
+
             list_utt = List_utterance(self.recorder.time_start_recording)
             self.sender.start_sending(list_utt)
             self.bouton_record["text"] = "Stop"
+
+            # Waiting if no decoder available to be able to get the message before closing
+            time.sleep(5)
 
         else:
             self.cliquer_stop()
@@ -122,14 +130,14 @@ class Interface(Frame):
         if self.isactif:  
 
             self.sender.stop_sending()
-            time.sleep(1)
-            self.recorder.stop_recoding()         
+            self.recorder.stop_recoding()
+            time.sleep(1)         
             self.recorder.save_wav()
 
 
-            if self.recorder.isAlive():
-                self.recorder.stop()
-                self.recorder.join()
+            if self.recorder.mythread.isAlive():
+                self.recorder.terminate()
+
 
             if self.sender.isAlive():
                 self.sender.saved.wait()
@@ -139,17 +147,17 @@ class Interface(Frame):
 
             self.sender = None
             self.ws = None
-            time.sleep(1)
+            self.recorder = None
 
             self.isactif = False
             self.message["text"] = "Transcirition : OFF"
 
             
     def cliquer_quit(self):
-
         self.cliquer_stop()
         self.quit()
         print "* Leaving"
+        self.fenetre.destroy()
         sys.exit(0)
 
     # Function for setting the thresold level for speech recognition
@@ -274,6 +282,7 @@ def main():
         fenetre.protocol("WM_DELETE_WINDOW", on_closing)
 
         interface.mainloop()
+
 
 
     except KeyboardInterrupt:

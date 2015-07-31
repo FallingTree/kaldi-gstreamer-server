@@ -50,6 +50,8 @@ class MyClient(WebSocketClient):
         self.nextUtterance = utt
         self.newUtt = threading.Event()
 
+        self.decoder_available = True
+
     #@rate_limited(4)
     def send_data(self, data):
         self.send(data, binary=True)
@@ -167,6 +169,8 @@ class MyClient(WebSocketClient):
             print >> sys.stderr, "Received error from server (status %d)" % response['status']
             if 'message' in response:
                 print >> sys.stderr, "Error message:",  response['message']
+            if response['message']=="No decoder available, try again later":
+                self.decoder_available = False
 
 
 

@@ -6,11 +6,13 @@ import pyaudio
 import wave
 
 
-class Recorder(threading.Thread): 
+class Recorder(): 
     def __init__(self,args): 
-        threading.Thread.__init__(self) 
+        self.stop = threading.Event()
+        self.mythread = threading.Thread(target=self.run)
+          
+
         self.p = pyaudio.PyAudio()
-        self.isrunning = False
         self.buffer = []
         self.time_recorded = []
         self.chunk = args.chunk        
@@ -24,6 +26,8 @@ class Recorder(threading.Thread):
         self.ispaused = False
         self.time_start_recording = 0
 
+        self.mythread.start()  
+
       
         
     def run(self): 
@@ -35,19 +39,27 @@ class Recorder(threading.Thread):
             input=True,
             frames_per_buffer=self.chunk)
         
-        while self.isrunning:          
+        while (not self.stop.is_set()):          
             if self.recording and not self.ispaused:
                 self.time_recorded.append(time.time())
                 data = self.stream.read(self.chunk)
                 self.buffer.append(data)
+                
+            # print "Recording :", self.recording, "Alive :", not self.stop.is_set()
 
   
-    def stop(self):
-        self.isrunning = False 
+    def terminate(self):
+        self.stop.set()
+        
+        self.buffer = []
+
         if self.stream is not None:
             self.stream.stop_stream()
             self.stream.close()
         self.p.terminate()
+
+        self.mythread.join(2)
+
 
     def stop_recoding(self):
         self.recording = False

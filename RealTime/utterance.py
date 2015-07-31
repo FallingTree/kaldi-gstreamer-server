@@ -149,8 +149,6 @@ class List_utterance(object):
 				transcript+= "<Episode>\n<Section type=\"report\" startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 				transcript+= "<Turn startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 
-
-				time.sleep(7)	
 				chaine = "time_start_record;time_end_record;time_record_send;time_sending;time_first_result;time_final_result;transcript\n"	
 				print "* Now sending utterance by utterance for full results"
 				utterances_left = len(self.list)

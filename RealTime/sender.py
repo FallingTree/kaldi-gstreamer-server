@@ -6,7 +6,7 @@ import audioop
 from utterance import Utterance
 
 class Sender(threading.Thread): 
-    def __init__(self,ws,recorder,args,textbox):
+    def __init__(self,ws,recorder,args,textbox,message):
     	threading.Thread.__init__(self) 
     	self.ws = ws
     	self.recorder = recorder
@@ -21,6 +21,7 @@ class Sender(threading.Thread):
         self.condition_set = False
         self.condition_False = False
         self.condition_True = False
+        self.message = message
 
 
         
@@ -34,7 +35,14 @@ class Sender(threading.Thread):
 
             # Waiting for a minimum of data available in the buffer
             while self.isrunning and len(self.recorder.buffer) < 5:
-                time.sleep(0.001)
+                time.sleep(0.01)
+
+            # If no decoder available ending here
+            if not self.ws.decoder_available:
+                self.isSending = False
+                self.isrunning = False
+                self.saved.set()
+                self.message["text"] = "No decoder Available !  "
 
             # Checking if the condition (energetic) is respected
             
@@ -52,7 +60,7 @@ class Sender(threading.Thread):
 
                     # Actual sending, k-1 because we want to have all the data of the beginning of the utterance
                     while self.isrunning and (self.condition(k-1) or self.condition(k) or self.condition(k+1))  and self.isSending:
-                        if k <= len(self.recorder.buffer)-1:
+                        if k < len(self.recorder.buffer)-1:
                             self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
                             self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
                             k+=1 
@@ -62,7 +70,7 @@ class Sender(threading.Thread):
                         self.textbox["text"] = " X   "
                     self.ws.send_data(b''.join(self.recorder.buffer[k-1]))
                     self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
-                    self.list_utt.get_utt().set_end_utt_recording(self.recorder.time_recorded[k-1])
+                    self.list_utt.get_utt().set_end_utt_recording(self.recorder.time_recorded[k])
                     
                     print "* Number of uttérances :", len(self.list_utt.list)
                     utt = None
@@ -70,7 +78,7 @@ class Sender(threading.Thread):
 
             if not self.saved.isSet():
                 self.ws.send("EOS")
-                #self.list_utt.generate_timing(self.recorder.filename,self.args)
+                time.sleep(6)
                 self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)            
                 self.saved.set()
 
