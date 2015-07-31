@@ -11,6 +11,9 @@ import json
 import time
 import os
 
+global Chunk 
+Chunk = 1200
+
 def rate_limited(maxPerSecond):
     minInterval = 1.0 / float(maxPerSecond)
     def decorate(func):
@@ -29,7 +32,7 @@ def rate_limited(maxPerSecond):
 
 class MyClient_trans(WebSocketClient):
 
-    def __init__(self, utterance, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
+    def __init__(self, chunk,utterance, url, protocols=None, extensions=None, heartbeat_freq=None, byterate=32000,
                  save_adaptation_state_filename=None, send_adaptation_state_filename=None):
         super(MyClient_trans, self).__init__(url, protocols, extensions, heartbeat_freq)
         self.final_hyps = []
@@ -40,8 +43,10 @@ class MyClient_trans(WebSocketClient):
         self.send_adaptation_state_filename = send_adaptation_state_filename
         self.utterance = utterance
         self.first_hypothesis = True
+        global Chunk 
+        Chunk = chunk
 
-    #@rate_limited(4)
+    @rate_limited(int(16000/Chunk))
     def send_data(self, data):
         self.send(data, binary=True)
 
@@ -51,7 +56,6 @@ class MyClient_trans(WebSocketClient):
             self.utterance.time_start_sending_end = time.time()
             for block in self.data:
                 self.send_data(block)
-                time.sleep(0.15)
             print >> sys.stderr, "Audio sent, now sending EOS"
             self.send("EOS")
             self.utterance.time_end_sending_end = time.time()
@@ -71,7 +75,6 @@ class MyClient_trans(WebSocketClient):
                     #print >> sys.stderr, trans,
                     self.final_hyps.append(trans)
                     print >> sys.stderr, '\r%s' % trans.replace("\n", "\\n")
-                    self.utterance.time_final_result_end = time.time()
                 else:
                     print_trans = trans.replace("\n", "\\n")
                     if len(print_trans) > 80:

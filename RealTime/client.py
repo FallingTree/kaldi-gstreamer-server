@@ -7,7 +7,6 @@ import sys
 import urllib
 import Queue
 import json
-from gi.repository import GObject
 from Tkinter import *
 from utterance import Utterance
 
@@ -107,6 +106,7 @@ class MyClient(WebSocketClient):
                     # Deleting the partial transcription and replacing by the final hypothesis
                     self.TextArea.delete(self.start_currTrans,"end")
                     self.TextArea.insert('end',print_trans)
+                    self.TextArea.see(END)
                     self.start_currTrans = self.TextArea.index(INSERT)
 
                     self.trans = []
@@ -149,6 +149,7 @@ class MyClient(WebSocketClient):
                     self.trans += chaine
                     result = " ".join(chaine)
                     self.TextArea.insert('end',result+" ")
+                    self.TextArea.see(END)
 
                     # Saving the transcript in the Utterance
                     self.currUtterance.set_transcript(result+" ")

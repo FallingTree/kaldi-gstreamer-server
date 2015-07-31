@@ -81,24 +81,32 @@ class List_utterance(object):
 	def get_utt(self):
 		return self.list[len(self.list)-1]
 
-	def generate_transcript(self,filename):
+	def generate_transcript(self,filename,args):
 		transcript = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
 		transcript+= "<!DOCTYPE Trans SYSTEM \"trans-14.dtd\">\n"
 		transcript+= "<Trans scribe=\"ASR\" audio_filename=\""+str(filename)+"\" version=\"4\" version_date=\""+str(time.strftime("%y%m%d"))+"\" xml:lang=\"French\">\n"
 		transcript+= "<Episode>\n<Section type=\"report\" startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 		transcript+= "<Turn startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
+		print "* Now sending utterance by utterance for full results"
+		utterances_left = len(self.list)
 		for utterance in self.list:
+			print "* Now treating utterance ", len(self.list)-utterances_left+1, "Left : ", utterances_left
 			transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_start_record-self.time_recording_begin)
 			transcript+=utterance.transcript
 			transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_end_record-self.time_recording_begin)
+			utterances_left+=-1
 		transcript+="\n</Turn>\n</Section>\n</Episode>\n</Trans>"
-		fichier_trs = open("data/"+filename+'.trs', "a")
+
+		if args.mode == "simulation":
+			fichier_trs = open(filename.split('.')[0]+'_simulation.trs', "a")
+		else:
+			fichier_trs = open("data/"+filename+'.trs', "a")
 		fichier_trs.write(transcript)
 		fichier_trs.close()
 
 		print"* TRS saved"
 
-	def generate_timing(self,filename):
+	def generate_timing(self,filename,args):
 		chaine = "time_start_record;time_end_record;time_start_sending;time_end_sending;time_first_result;self.time_final_result\n"
 
 		for utterance in self.list:
@@ -106,9 +114,14 @@ class List_utterance(object):
 						str(utterance.time_start_sending)+';'+str(utterance.time_end_sending)+';'+\
 						str(utterance.time_first_result)+';'+str(utterance.time_final_result)+'\n'
 
-		fichier_timing = open("data/"+filename+'_live.txt', "a")
-		fichier_timing.write(chaine)
-		fichier_timing.close()
+		if args.mode == "simulation":
+			fichier_timing = open(filename.split('.')[0]+'_live_simulation.txt', "a")
+			fichier_timing.write(chaine)
+			fichier_timing.close()
+		else:
+			fichier_timing = open("data/"+filename+'_live.txt', "a")
+			fichier_timing.write(chaine)
+			fichier_timing.close()
 
 		print "* Timing saved"
 
@@ -137,43 +150,58 @@ class List_utterance(object):
 				transcript+= "<Turn startTime=\"0\" endTime=\"%.3f\">\n" % (self.list[len(self.list)-1].time_end_record-self.time_recording_begin)
 
 
-				time.sleep(5)	
-				chaine = "record_length;time_record_send;time_sending;time_first_result;time_final_result;transcript\n"	
+				time.sleep(7)	
+				chaine = "time_start_record;time_end_record;time_record_send;time_sending;time_first_result;time_final_result;transcript\n"	
 				print "* Now sending utterance by utterance for full results"
+				utterances_left = len(self.list)
 				for utterance in self.list:	
+					print "* Now treating utterance ", len(self.list)-utterances_left+1, "Left : ", utterances_left
 					ref_time = time.time()
 					content_type = "audio/x-raw, layout=(string)interleaved, rate=(int)%d, format=(string)S16LE, channels=(int)1" %(args.rate/2)
-					ws = MyClient_trans(utterance, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
+					ws = MyClient_trans(args.chunk, utterance, args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=args.rate,
 							save_adaptation_state_filename=args.save_adaptation_state, send_adaptation_state_filename=args.send_adaptation_state)
 					ws.connect()
 					result = ws.get_full_hyp()
+					utterance.time_final_result_end = time.time()
 
 					transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_start_record-self.time_recording_begin)
 					transcript+=result.encode('utf-8')
 					transcript+="\n<Sync time=\"%.3f\" />\n" %(utterance.time_end_record-self.time_recording_begin)
 
 					if result.encode('utf-8') != '':
-						chaine+= str(utterance.time_end_record-utterance.time_start_record)+';'+str(utterance.time_start_sending-utterance.time_start_record )+\
-						';'+str(utterance.time_end_sending-utterance.time_start_sending)+';'+\
+						chaine+= str(utterance.time_start_record-self.time_recording_begin)+';'+str(utterance.time_end_record-self.time_recording_begin)+';'+str(utterance.time_start_sending-utterance.time_start_record )+\
+						';'+str(utterance.time_end_sending_end-utterance.time_start_sending_end)+';'+\
 							str(utterance.time_first_result_end-ref_time)+';'+str(utterance.time_final_result_end-ref_time)+'; '+result.encode('utf-8')+'\n'
 
 					ws = None				
 					time.sleep(1.5)
+					utterances_left+=-1
+					print
 
 				transcript+="\n</Turn>\n</Section>\n</Episode>\n</Trans>"
-				fichier_trs = open("data/"+filename+'_timed.trs', "a")
-				fichier_trs.write(transcript)
-				fichier_trs.close()
+				if args.mode == 'simulation':
+					fichier_trs = open(filename.split('.')[0]+"_simulation.trs", "a")
+					fichier_trs.write(transcript)
+					fichier_trs.close()
+				else:
+					fichier_trs = open("data/"+filename+'_timed.trs', "a")
+					fichier_trs.write(transcript)
+					fichier_trs.close()
 				print "* TRS real timed saved"
 
-				fichier_timing_utt_per_utt = open("data/"+filename+'_utt_per_utt.txt', "a")
-				fichier_timing_utt_per_utt.write(chaine)
-				fichier_timing_utt_per_utt.close()
+				if args.mode == 'simulation':
+					fichier_timing_utt_per_utt = open(filename.split('.')[0]+'_utt_per_utt_simulation.txt', "a")
+					fichier_timing_utt_per_utt.write(chaine)
+					fichier_timing_utt_per_utt.close()
+				else:
+					fichier_timing_utt_per_utt = open("data/"+filename+'_utt_per_utt.txt', "a")
+					fichier_timing_utt_per_utt.write(chaine)
+					fichier_timing_utt_per_utt.close()
 				print "* Timing utt per utt saved"
 
 
 			else:
-				self.generate_transcript(filename)
+				self.generate_transcript(filename,args)
 
 			
 			

@@ -19,7 +19,8 @@ class Sender(threading.Thread):
         self.textbox = textbox
         self.ispaused = False
         self.condition_set = False
-        self.force_condition = False
+        self.condition_False = False
+        self.condition_True = False
 
 
         
@@ -39,7 +40,7 @@ class Sender(threading.Thread):
             
             while self.isSending:
                 k = len(self.recorder.buffer) - 1
-                if self.condition(k-1):
+                if self.condition(k):
                     # Start of a new utterance
                     self.textbox["text"] = " O   "
                     indice_last_condition = k
@@ -51,21 +52,17 @@ class Sender(threading.Thread):
 
                     # Actual sending, k-1 because we want to have all the data of the beginning of the utterance
                     while self.isrunning and (self.condition(k-1) or self.condition(k) or self.condition(k+1))  and self.isSending:
-                        if k < len(self.recorder.buffer)-2:
+                        if k <= len(self.recorder.buffer)-1:
                             self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
                             self.ws.send_data(b''.join(self.recorder.buffer[k-1]))    
                             k+=1 
                     print "** Time stop sending : ", time.strftime("%A %d %B %Y %H:%M:%S")
-
                     # Most of the time here because condition became false, end of the utterance
-                    self.textbox["text"] = " X   "
+                    if self.isSending:
+                        self.textbox["text"] = " X   "
                     self.ws.send_data(b''.join(self.recorder.buffer[k-1]))
-                    self.ws.send_data(b''.join(self.recorder.buffer[k]))
-                    self.ws.send_data(b''.join(self.recorder.buffer[k+1]))
                     self.list_utt.get_utt().data.append(self.recorder.buffer[k-1])
-                    self.list_utt.get_utt().data.append(self.recorder.buffer[k])
-                    self.list_utt.get_utt().data.append(self.recorder.buffer[k+1])
-                    self.list_utt.get_utt().set_end_utt_recording(self.recorder.time_recorded[k-2])
+                    self.list_utt.get_utt().set_end_utt_recording(self.recorder.time_recorded[k-1])
                     
                     print "* Number of uttérances :", len(self.list_utt.list)
                     utt = None
@@ -73,9 +70,10 @@ class Sender(threading.Thread):
 
             if not self.saved.isSet():
                 self.ws.send("EOS")
-                #self.list_utt.generate_timing(self.recorder.filename)
-                self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)              
+                #self.list_utt.generate_timing(self.recorder.filename,self.args)
+                self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)            
                 self.saved.set()
+
 
 
                     
@@ -88,6 +86,14 @@ class Sender(threading.Thread):
 
     def restart(self):
         self.ispaused = False
+
+    def force_condition_false(self):
+        self.condition_False = True
+        self.condition_True = False
+
+    def force_condition_true(self):
+        self.condition_False = False
+        self.condition_True = True
 
     def stop_sending(self) :
     	self.isSending = False
@@ -103,15 +109,17 @@ class Sender(threading.Thread):
     # Simple function computing the energy of the audio signal to detect if there is speech or not
     def condition(self,k):
 
-        if self.args.control_condition == 'yes':
-            return self.condition_set
-
-        if self.force_condition:
-            print "ICI"
+        if self.condition_False:
             return False
+
+        if self.condition_True:
+            return True
 
         if self.ispaused:
             return False
+
+        if self.args.control_condition == 'yes':
+            return self.condition_set
 
         if k > len(self.recorder.buffer) -1:
             return False

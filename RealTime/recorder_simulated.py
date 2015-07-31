@@ -6,17 +6,18 @@ import time
 
 
 class Recorder_simulated(threading.Thread): 
-    def __init__(self,wav): 
+    def __init__(self,args): 
         threading.Thread.__init__(self) 
-        self.filename = wav
+        self.filename = args.wav
         self.buffer = []
-        self.chunk = 1200
+        self.chunk = args.chunk
         self.channels = 1
         self.rate = 16000
         self.recording = False
         self.time_recorded = []
-        self.filename = wav
+        self.filename = args.wav
         self.ispaused = False
+        self.time_start_recording = 0
 
       
         
@@ -32,8 +33,8 @@ class Recorder_simulated(threading.Thread):
         while self.isrunning:          
             if self.recording and not self.ispaused:
                 for block in temp:
-                    self.buffer.append(block)
                     self.time_recorded.append(time.time())
+                    self.buffer.append(block)
                     time.sleep(self.chunk/self.rate)
                 #print "Longueur du buffer : ", len(self.bufferc)
 
@@ -52,6 +53,7 @@ class Recorder_simulated(threading.Thread):
         
     def start_recording(self):
         self.buffer = []
+        self.time_start_recording = time.time()
         print "** Time starting recorder : ", time.strftime("%A %d %B %Y %H:%M:%S")
         self.recording = True
 

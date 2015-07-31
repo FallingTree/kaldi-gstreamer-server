@@ -15,6 +15,7 @@ import pyaudio
 import audioop
 from utterance import *
 from recorder_simulated import *
+from VAD import *
 
 
 # Class that manages the graphic interface
@@ -89,20 +90,24 @@ class Interface(Frame):
             self.ws = MyClient(self.TextArea,self.latence, self.args.uri + '?%s' % (urllib.urlencode([("content-type", content_type)])), byterate=self.args.rate,
                               save_adaptation_state_filename=self.args.save_adaptation_state, send_adaptation_state_filename=self.args.send_adaptation_state)            
             if self.args.mode == 'live':
-                self.recorder = Recorder(self.args.rate)
+                self.recorder = Recorder(self.args)
             else:
-                self.recorder = Recorder_simulated(self.args.wav)
+                self.recorder = Recorder_simulated(self.args)
+
             self.sender = Sender(self.ws,self.recorder,self.args,self.condition)
             self.ws.connect()
             self.recorder.start()
             self.sender.set_threshold(self.threshold)
             self.sender.start()
 
+            if self.args.timing != '':
+                self.VAD = VAD_manager(self.args,self.sender,self.recorder.time_start_recording)
+                self.VAD.start()
 
             self.message["text"] = "Transcirition : ON"
             self.isactif = True           
             self.recorder.start_recording()
-            list_utt = List_utterance(time.time())
+            list_utt = List_utterance(self.recorder.time_start_recording)
             self.sender.start_sending(list_utt)
             self.bouton_record["text"] = "Stop"
 
@@ -113,15 +118,15 @@ class Interface(Frame):
 
     def cliquer_stop(self):
 
-
+        self.condition["text"] = " X   "
         if self.isactif:  
-            self.sender.force_condition = True
-            time.sleep(0.5)
-            self.recorder.stop_recoding()
+
             self.sender.stop_sending()
+            time.sleep(1)
+            self.recorder.stop_recoding()         
             self.recorder.save_wav()
 
-            #self.ws.close()
+
             if self.recorder.isAlive():
                 self.recorder.stop()
                 self.recorder.join()
@@ -161,8 +166,8 @@ class Interface(Frame):
 
                 frames = []
                 print "* Recording speech sample"
-                for i in range(0, int(16000 / 1200 * 10)):
-                    data = stream.read(1200)
+                for i in range(0, int(16000 / self.args.chunk * 10)):
+                    data = stream.read(self.args.chunk)
                     frames.append(data)
 
 
@@ -229,9 +234,16 @@ def main():
         parser.add_argument('-w', '--wav', default='', help="Wav for simulation mode")
         parser.add_argument('-f', '--fontsize', default=20, help="Font size of the subs, default is 20")
         parser.add_argument('-c', '--control_condition', default="no", help="yes or no. If yes a button allows to control whether or not the condition for VAC is set or not")
+        parser.add_argument('--chunk', default=1200, help="Size of the chunk for the recording")
+        parser.add_argument('--timing', default='', help="Timing file for automatic decision about presence or speech or not")
 
         args = parser.parse_args()
+        args.chunk=int(args.chunk)
 
+        if args.timing != '':
+            if not os.path.exists(args.timing):
+                print "Timing file do not exists"
+                exit()
 
         if args.mode=='simulation':
             if not os.path.exists(args.wav):
