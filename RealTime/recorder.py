@@ -32,7 +32,6 @@ class Recorder():
         
     def run(self): 
         print "* Recorder initialised"
-        self.isrunning = True
         self.stream = self.p.open(format=self.format,
             channels=self.channels,
             rate=self.rate,

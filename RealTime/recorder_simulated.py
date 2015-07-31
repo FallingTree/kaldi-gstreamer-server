@@ -1,13 +1,16 @@
 # -*- encoding: UTF-8 -*-
 import threading 
 import time
+import pyaudio
 
 
 
 
-class Recorder_simulated(threading.Thread): 
+class Recorder_simulated(): 
     def __init__(self,args): 
-        threading.Thread.__init__(self) 
+        self.stop = threading.Event()
+        self.mythread = threading.Thread(target=self.run)
+
         self.filename = args.wav
         self.buffer = []
         self.chunk = args.chunk
@@ -19,28 +22,56 @@ class Recorder_simulated(threading.Thread):
         self.ispaused = False
         self.time_start_recording = 0
 
+        self.p = pyaudio.PyAudio()
+        self.format = pyaudio.paInt16
+        self.channels = 1
+        self.stream = None
+
+        self.mythread.start()
+
+
       
         
     def run(self): 
         print "* Recorder initialised"
-        self.isrunning = True
+
 
         f=open(self.filename, "rb")
         temp = []
         for block in iter(lambda: f.read(self.chunk), ""):
             temp.append(block)
 
-        while self.isrunning:          
-            if self.recording and not self.ispaused:
-                for block in temp:
+        self.stream = self.p.open(format=self.format,
+            channels=self.channels,
+            rate=self.rate,
+            output=True,
+            frames_per_buffer=self.chunk)
+
+        while (not self.stop.is_set()):          
+            while not self.recording:
+                time.sleep(0.1)
+            
+            for block in temp:
+                if self.recording and not self.ispaused:
                     self.time_recorded.append(time.time())
                     self.buffer.append(block)
-                    time.sleep(self.chunk/self.rate)
+                    self.stream.write(block)
+                    #time.sleep(self.chunk/self.rate)
+
                 #print "Longueur du buffer : ", len(self.bufferc)
 
   
-    def stop(self):
-        self.isrunning = False 
+    def terminate(self):
+        self.stop.set()
+        
+        self.buffer = []
+
+        if self.stream is not None:
+            self.stream.stop_stream()
+            self.stream.close()
+        self.p.terminate()
+
+        self.mythread.join(2)
 
     def pause(self):
         self.ispaused = True

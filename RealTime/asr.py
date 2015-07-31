@@ -105,7 +105,7 @@ class Interface(Frame):
             self.sender.start()
 
             if self.args.timing != '':
-                self.VAD = VAD_manager(self.args,self.sender,self.recorder.time_start_recording)
+                self.VAD = VAD_manager(self.args,self.sender,self.recorder.time_start_recording,self)
                 self.VAD.start()
 
             self.message["text"] = "Transcirition : ON"
@@ -135,8 +135,8 @@ class Interface(Frame):
             self.recorder.save_wav()
 
 
-            if self.recorder.mythread.isAlive():
-                self.recorder.terminate()
+            # if self.recorder.mythread.isAlive():
+            self.recorder.terminate()
 
 
             if self.sender.isAlive():
@@ -273,7 +273,7 @@ def main():
         if not os.path.exists('tmp'):   
             os.makedirs('tmp')
 
-        fenetre = Tk()
+        fenetre = Tk() 
         interface = Interface(fenetre,args)
 
         def on_closing():

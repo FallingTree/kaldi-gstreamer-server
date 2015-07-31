@@ -2,12 +2,13 @@ import time
 import threading
 
 class VAD_manager(threading.Thread): 
-    def __init__(self,args,sender,time_start_recording): 
+    def __init__(self,args,sender,time_start_recording,interface): 
         threading.Thread.__init__(self) 
         self.isrunning = False
         self.file_timing = args.timing
         self.sender = sender
         self.time_start_recording = time_start_recording
+        self.interface = interface
 
       
     def run(self): 
@@ -38,6 +39,9 @@ class VAD_manager(threading.Thread):
             self.sender.force_condition_true()
             time.sleep(liste_time_end_recording[x]-liste_time_start_recording[x])
             self.sender.force_condition_false()
+
+        self.interface.cliquer_quit()
+
 
     def stop():
         self.isrunning = False
