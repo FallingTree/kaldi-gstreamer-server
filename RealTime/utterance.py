@@ -188,7 +188,7 @@ class List_utterance(object):
 				print "* TRS real timed saved"
 
 				if args.mode == 'simulation':
-					fichier_timing_utt_per_utt = open(filename.split('.')[0]+'_utt_per_utt_simulation.txt', "a")
+					fichier_timing_utt_per_utt = open(filename.split('.')[0]+'_utt_per_utt_simulation_chunk'+str(args.chunk)+'.txt', "a")
 					fichier_timing_utt_per_utt.write(chaine)
 					fichier_timing_utt_per_utt.close()
 				else:

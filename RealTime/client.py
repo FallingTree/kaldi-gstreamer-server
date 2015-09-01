@@ -114,13 +114,13 @@ class MyClient(WebSocketClient):
                     self.trans = []
                     self.currUtterance.set_final_result()
 
-                    
-                    # If the recording of the utterance has ended raise the event to move on the next utterance
-                    if self.currUtterance.event_end_recording.isSet():
-                        print "Setting Final Result event"
-                        self.currUtterance.set_final_result()
-                        self.currUtterance.set_got_final_result()
-                        self.newUtt.wait()
+                    if self.isSending:
+                        # If the recording of the utterance has ended raise the event to move on the next utterance
+                        if self.currUtterance.event_end_recording.isSet():
+                            print "Setting Final Result event"
+                            self.currUtterance.set_final_result()
+                            self.currUtterance.set_got_final_result()
+                            self.newUtt.wait()
                         
                                           
                 else:

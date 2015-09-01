@@ -16,7 +16,6 @@ class VAD_manager(threading.Thread):
         liste_time_start_recording = []
         liste_time_end_recording = []
         with open(self.file_timing) as f: # open the file for reading
-            print "E"
             i=1
             for line in f: # iterate over each line
                 if i>1:
@@ -30,7 +29,7 @@ class VAD_manager(threading.Thread):
                 i+=1
 
         self.sender.force_condition_false()
-        time.sleep(liste_time_start_recording[0]-self.time_start_recording)
+        time.sleep(liste_time_start_recording[0])
         self.sender.force_condition_true()
         time.sleep(liste_time_end_recording[0]-liste_time_start_recording[0])
         self.sender.force_condition_false()
@@ -40,6 +39,7 @@ class VAD_manager(threading.Thread):
             time.sleep(liste_time_end_recording[x]-liste_time_start_recording[x])
             self.sender.force_condition_false()
 
+        time.sleep(3)
         self.interface.cliquer_quit()
 
 

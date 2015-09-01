@@ -14,6 +14,7 @@ import os
 global Chunk 
 Chunk = 1200
 
+
 def rate_limited(maxPerSecond):
     minInterval = 1.0 / float(maxPerSecond)
     def decorate(func):
@@ -43,10 +44,11 @@ class MyClient_trans(WebSocketClient):
         self.send_adaptation_state_filename = send_adaptation_state_filename
         self.utterance = utterance
         self.first_hypothesis = True
-        global Chunk 
-        Chunk = chunk
+        self.chunk = chunk
 
-    @rate_limited(int(16000/Chunk))
+
+
+    #@rate_limited(int(16000/Chunk))
     def send_data(self, data):
         self.send(data, binary=True)
 
@@ -56,6 +58,7 @@ class MyClient_trans(WebSocketClient):
             self.utterance.time_start_sending_end = time.time()
             for block in self.data:
                 self.send_data(block)
+                time.sleep(float(self.chunk)/16000)
             print >> sys.stderr, "Audio sent, now sending EOS"
             self.send("EOS")
             self.utterance.time_end_sending_end = time.time()

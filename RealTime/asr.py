@@ -79,6 +79,10 @@ class Interface(Frame):
         self.threshold = 1000
         self.ispaused = False
 
+        time.sleep(2)
+        if args.mode == 'simulation':
+            self.cliquer_record()
+
     
     def cliquer_record(self):
 
@@ -250,12 +254,12 @@ def main():
 
         if args.timing != '':
             if not os.path.exists(args.timing):
-                print "Timing file do not exists"
+                print "Timing file does not exist"
                 exit()
 
         if args.mode=='simulation':
             if not os.path.exists(args.wav):
-                print "Wav do not exists"
+                print "Wav does not exist"
                 exit()
 
         if args.wav != '' and args.mode =='live':

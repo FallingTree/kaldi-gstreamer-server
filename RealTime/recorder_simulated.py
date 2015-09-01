@@ -37,9 +37,6 @@ class Recorder_simulated():
 
 
         f=open(self.filename, "rb")
-        temp = []
-        for block in iter(lambda: f.read(self.chunk), ""):
-            temp.append(block)
 
         self.stream = self.p.open(format=self.format,
             channels=self.channels,
@@ -48,10 +45,15 @@ class Recorder_simulated():
             frames_per_buffer=self.chunk)
 
         while (not self.stop.is_set()):          
-            while not self.recording:
+            while not self.recording and (not self.stop.is_set()):
                 time.sleep(0.1)
-            
-            for block in temp:
+
+            block = f.read(self.chunk)
+            self.time_recorded.append(time.time())
+            self.buffer.append(block)
+            self.stream.write(block)
+            while block != "" and (not self.stop.is_set()):
+                block = f.read(self.chunk)
                 if self.recording and not self.ispaused:
                     self.time_recorded.append(time.time())
                     self.buffer.append(block)
@@ -59,6 +61,11 @@ class Recorder_simulated():
                     #time.sleep(self.chunk/self.rate)
 
                 #print "Longueur du buffer : ", len(self.bufferc)
+            
+
+
+        print "* Stopping recorder"
+        f.close()
 
   
     def terminate(self):
@@ -71,7 +78,9 @@ class Recorder_simulated():
             self.stream.close()
         self.p.terminate()
 
-        self.mythread.join(2)
+
+        self.mythread.join()
+
 
     def pause(self):
         self.ispaused = True

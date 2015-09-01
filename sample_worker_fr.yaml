@@ -1,9 +1,9 @@
 timeout-decoder : 10
 decoder:
-   model: test/models/french/tri_2b_fr/final.mdl
-   lda-mat: test/models/french/tri_2b_fr/final.mat
-   word-syms: test/models/french/tri_2b_fr/words.txt
-   fst: test/models/french/tri_2b_fr/HCLG.fst
+   model: test/models/french/tri2b/final.mdl
+   lda-mat: test/models/french/tri2b/final.mat
+   word-syms: test/models/french/tri2b/words.txt
+   fst: test/models/french/tri2b/HCLG.fst
    silence-phones: "1:2:3:4:5"
    left-context: 3
    right-context: 3

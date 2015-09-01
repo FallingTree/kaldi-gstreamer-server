@@ -77,7 +77,9 @@ class Sender(threading.Thread):
                     
 
             if not self.saved.isSet():
-                self.ws.send("EOS")
+                #self.ws.send("EOS")
+                self.ws.stop_Sending()
+                self.ws.newUtt.set()
                 time.sleep(6)
                 self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)            
                 self.saved.set()

@@ -15,7 +15,7 @@ class Recorder():
         self.p = pyaudio.PyAudio()
         self.buffer = []
         self.time_recorded = []
-        self.chunk = args.chunk        
+        self.chunk = args.chunk/2        
         self.format = pyaudio.paInt16
         self.channels = 1
         self.rate = 16000
