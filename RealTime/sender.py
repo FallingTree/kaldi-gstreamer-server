@@ -24,6 +24,7 @@ class Sender(threading.Thread):
         self.message = message
 
 
+
         
     def run(self):
 
@@ -80,9 +81,14 @@ class Sender(threading.Thread):
                 #self.ws.send("EOS")
                 self.ws.stop_Sending()
                 self.ws.newUtt.set()
-                time.sleep(6)
-                self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)            
-                self.saved.set()
+                if self.args.subs == 'yes':
+                    print "* Waiting for decoder to finish current decoding"
+                    result = self.ws.get_full_hyp()
+                    self.ws = None
+                    time.sleep(6)
+                    self.list_utt.generate_timed_transcript(self.recorder.filename,self.args)            
+                    self.saved.set()
+
 
 
 

@@ -79,9 +79,9 @@ class Interface(Frame):
         self.threshold = 1000
         self.ispaused = False
 
-        time.sleep(2)
-        if args.mode == 'simulation':
-            self.cliquer_record()
+        # time.sleep(2)
+        # if args.mode == 'simulation':
+        #     self.cliquer_record()
 
     
     def cliquer_record(self):
@@ -131,8 +131,10 @@ class Interface(Frame):
     def cliquer_stop(self):
 
         self.condition["text"] = " X   "
+        self.message["text"] = "Transcirition : OFF"
         if self.isactif:  
 
+            self.isactif = False
             self.sender.stop_sending()
             self.recorder.stop_recoding()
             time.sleep(1)         
@@ -142,19 +144,26 @@ class Interface(Frame):
             # if self.recorder.mythread.isAlive():
             self.recorder.terminate()
 
+            def stop():
+                self.message["text"] = "Waiting for decoder to finish current decoding"
+                if self.sender.isAlive():
+                    self.sender.saved.wait()
+                    self.sender.stop()
+                    self.sender.join()
 
-            if self.sender.isAlive():
-                self.sender.saved.wait()
-                self.sender.stop()
-                self.sender.join()
+
+                self.sender = None
+                self.ws = None
+                self.recorder = None
+                self.message["text"] = "Finished decoding"
 
 
-            self.sender = None
-            self.ws = None
-            self.recorder = None
+            t = threading.Thread(target=stop)
+            t.start()
+            
 
-            self.isactif = False
-            self.message["text"] = "Transcirition : OFF"
+           
+            
 
             
     def cliquer_quit(self):

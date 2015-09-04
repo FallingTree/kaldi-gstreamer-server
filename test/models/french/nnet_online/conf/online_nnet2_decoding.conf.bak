@@ -1,0 +1,4 @@
+--feature-type=mfcc
+--mfcc-config=/data1/home/aman/kaldi/exp/nnet2_online/nnet_online/conf/mfcc.conf
+--ivector-extraction-config=/data1/home/aman/kaldi/exp/nnet2_online/nnet_online/conf/ivector_extractor.conf
+--endpoint.silence-phones=1:2:3:4:5

@@ -42,7 +42,7 @@ class Utterance:
 		self.time_final_result=time.time()
 		
 	def set_transcript(self,transcript):
-		self.transcript += transcript
+		self.transcript = transcript
 
 	def set_end_utt(self):
  		self.event_end.set()
@@ -196,10 +196,6 @@ class List_utterance(object):
 					fichier_timing_utt_per_utt.write(chaine)
 					fichier_timing_utt_per_utt.close()
 				print "* Timing utt per utt saved"
-
-
-			else:
-				self.generate_transcript(filename,args)
 
 			
 			

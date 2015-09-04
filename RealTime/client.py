@@ -82,7 +82,7 @@ class MyClient(WebSocketClient):
                     self.newUtt.wait()
 
 
-                            
+            print "* Audio finished : sending EOS"    
             self.send("EOS")
 
 
@@ -141,20 +141,13 @@ class MyClient(WebSocketClient):
 
                     # Deleting the part of the result that was already previouly written in the TextArea
                     transcription = str(print_trans.encode('utf-8'))
-                    chaine = transcription.replace('.','')
-                    chaine = chaine.split()
-
-                    for mot in self.trans:
-                        if mot in chaine:
-                            chaine.remove(mot)
-
-                    self.trans += chaine
-                    result = " ".join(chaine)
-                    self.TextArea.insert('end',result+" ")
+                    self.TextArea.delete(self.start_currTrans,"end")
+                    self.TextArea.insert('end',transcription)
                     self.TextArea.see(END)
 
+
                     # Saving the transcript in the Utterance
-                    self.currUtterance.set_transcript(result+" ")
+                    self.currUtterance.set_transcript(transcription)
 
 
                 
@@ -174,7 +167,7 @@ class MyClient(WebSocketClient):
 
 
 
-    def get_full_hyp(self, timeout=60):
+    def get_full_hyp(self, timeout=3600):
         return self.final_hyp_queue.get(timeout)
 
     def closed(self, code, reason=None):
